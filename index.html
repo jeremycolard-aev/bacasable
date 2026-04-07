@@ -2,228 +2,84 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deep Dive Podcast | Épisode 42</title>
+    <title>Podcast | Méthode Base64</title>
     <style>
-        :root {
-            --bg-color: #0f172a;
-            --card-bg: #1e293b;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent: #38bdf8;
-            --accent-hover: #0ea5e9;
+        body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .player-card { background: #1e293b; padding: 30px; border-radius: 20px; width: 400px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .status { font-size: 0.8rem; color: #38bdf8; margin-bottom: 20px; font-style: italic; }
+        .play-btn { 
+            background: #38bdf8; border: none; width: 60px; height: 60px; 
+            border-radius: 50%; color: white; font-size: 1.5rem; cursor: pointer;
+            display: none; margin: 0 auto;
         }
-
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
+        /* Animation de chargement */
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid #38bdf8;
+            border-radius: 50%; width: 40px; height: 40px;
+            animation: spin 1s linear infinite; margin: 0 auto;
         }
-
-        .podcast-container {
-            background-color: var(--card-bg);
-            border-radius: 20px;
-            padding: 30px;
-            max-width: 450px;
-            width: 100%;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
-        }
-
-        .cover-art {
-            width: 100%;
-            aspect-ratio: 1 / 1;
-            background: linear-gradient(135deg, #38bdf8 0%, #3b82f6 100%);
-            border-radius: 15px;
-            margin-bottom: 25px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 10px 15px -3px rgba(56, 189, 248, 0.3);
-        }
-
-        .cover-art span {
-            font-size: 4rem;
-        }
-
-        .podcast-info h2 {
-            margin: 0 0 5px 0;
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-
-        .podcast-info h3 {
-            margin: 0 0 15px 0;
-            font-size: 1rem;
-            color: var(--accent);
-            font-weight: 500;
-        }
-
-        .podcast-info p {
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            line-height: 1.5;
-            margin-bottom: 25px;
-        }
-
-        /* Styles du Lecteur Audio Custom */
-        .player-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 15px;
-        }
-
-        .play-btn {
-            background-color: var(--accent);
-            border: none;
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            transition: transform 0.2s, background-color 0.2s;
-            color: white;
-            font-size: 1.5rem;
-        }
-
-        .play-btn:hover {
-            background-color: var(--accent-hover);
-            transform: scale(1.05);
-        }
-
-        .progress-container {
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        /* Barre de progression personnalisée */
-        input[type="range"] {
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 12px;
-            width: 12px;
-            border-radius: 50%;
-            background: var(--accent);
-            cursor: pointer;
-            margin-top: -4px; /* Centrer le bouton sur la barre */
-        }
-
-        input[type="range"]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #475569;
-            border-radius: 2px;
-        }
-
-        .time-display {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            font-variant-numeric: tabular-nums;
-        }
-
-        /* On cache le lecteur HTML5 par défaut */
-        audio {
-            display: none;
-        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
-    <div class="podcast-container">
-        <div class="cover-art">
-            <span>🎧</span>
+    <div class="player-card">
+        <h2 id="title">Chargement du podcast...</h2>
+        <div id="loading-zone">
+            <div class="loader"></div>
+            <p class="status" id="status-msg">Conversion de l'audio par le serveur Google...</p>
         </div>
         
-        <div class="podcast-info">
-            <h2>L'art de l'intégration Web</h2>
-            <h3>Deep Dive Podcast - Épisode 42</h3>
-            <p>Dans cet épisode, nous explorons les limites du web moderne. Comment détourner les outils du quotidien comme Google Drive pour en faire des expériences sur-mesure ?</p>
-        </div>
-
-        <audio id="audio-source">
-            <source src="https://drive.google.com/uc?export=download&id=1YgSOrZOiwdvNHzWobeiqXzlGr3nN0RjB" type="audio/mpeg">
-            Votre navigateur ne supporte pas l'élément audio.
-        </audio>
-
-        <div class="player-controls">
-            <button class="play-btn" id="play-pause-btn">▶</button>
-            <div class="progress-container">
-                <input type="range" id="seek-bar" value="0" step="1">
-                <div class="time-display">
-                    <span id="current-time">0:00</span>
-                    <span id="duration">0:00</span>
-                </div>
-            </div>
-        </div>
+        <button id="btn-play" class="play-btn">▶</button>
+        <audio id="audio-element"></audio>
     </div>
 
     <script>
-        const audio = document.getElementById('audio-source');
-        const playBtn = document.getElementById('play-pause-btn');
-        const seekBar = document.getElementById('seek-bar');
-        const currentTimeLabel = document.getElementById('current-time');
-        const durationLabel = document.getElementById('duration');
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzxBzPoBJgJ_Jyrv7DfdXaOJ9LROIxiIcPbCIA6nsPI1rqyrJbuoADTNcFYqNd8wKpz/exec';
 
-        // Formater le temps en Minutes:Secondes
-        function formatTime(seconds) {
-            if (isNaN(seconds)) return "0:00";
-            const min = Math.floor(seconds / 60);
-            const sec = Math.floor(seconds % 60);
-            return `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        async function fetchAudio() {
+            const statusMsg = document.getElementById('status-msg');
+            const btn = document.getElementById('btn-play');
+            const audio = document.getElementById('audio-element');
+            const title = document.getElementById('title');
+            const loadingZone = document.getElementById('loading-zone');
+
+            try {
+                // 1. On appelle Apps Script
+                const response = await fetch(SCRIPT_URL);
+                const data = await response.json();
+
+                if(data.error) throw new Error(data.error);
+
+                // 2. On injecte le Base64 dans la source de l'audio
+                audio.src = data.base64;
+                title.innerText = data.name;
+                
+                // 3. On cache le loader et on montre le bouton
+                loadingZone.style.display = 'none';
+                btn.style.display = 'block';
+                
+                console.log("Audio chargé avec succès en Base64 !");
+
+            } catch (err) {
+                statusMsg.innerText = "Erreur : " + err.message;
+                statusMsg.style.color = "#ef4444";
+                console.error(err);
+            }
         }
 
-        // Gérer le bouton Play/Pause
-        playBtn.addEventListener('click', () => {
+        document.getElementById('btn-play').onclick = function() {
+            const audio = document.getElementById('audio-element');
             if (audio.paused) {
                 audio.play();
-                playBtn.innerHTML = '⏸'; // Change l'icône en pause
+                this.innerText = '⏸';
             } else {
                 audio.pause();
-                playBtn.innerHTML = '▶'; // Change l'icône en play
+                this.innerText = '▶';
             }
-        });
+        };
 
-        // Quand les métadonnées de l'audio sont chargées (pour avoir la durée)
-        audio.addEventListener('loadedmetadata', () => {
-            seekBar.max = audio.duration;
-            durationLabel.textContent = formatTime(audio.duration);
-        });
-
-        // Mettre à jour la barre de progression pendant la lecture
-        audio.addEventListener('timeupdate', () => {
-            seekBar.value = audio.currentTime;
-            currentTimeLabel.textContent = formatTime(audio.currentTime);
-        });
-
-        // Permettre à l'utilisateur de cliquer sur la barre pour avancer/reculer
-        seekBar.addEventListener('input', () => {
-            audio.currentTime = seekBar.value;
-        });
-
-        // Remettre le bouton sur Play quand l'audio se termine
-        audio.addEventListener('ended', () => {
-            playBtn.innerHTML = '▶';
-            seekBar.value = 0;
-            currentTimeLabel.textContent = "0:00";
-        });
+        fetchAudio();
     </script>
 </body>
 </html>
