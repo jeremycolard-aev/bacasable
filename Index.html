@@ -3,39 +3,122 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Les souvenirs de l'asso - Test Vidéo</title>
+    <title>Tests d'intégration Vidéo Google Drive</title>
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; line-height: 1.6; }
-        .video-container { margin-bottom: 40px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; }
-        h2 { color: #2c3e50; }
-        code { background: #eee; padding: 2px 5px; }
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 { text-align: center; color: #2c3e50; }
+        .test-container {
+            background: #fff;
+            margin-bottom: 30px;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .test-container h2 { margin-top: 0; color: #2980b9; }
+        .explanation {
+            background: #e8f4f8;
+            padding: 10px;
+            border-left: 4px solid #3498db;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* Ratio 16:9 */
+            height: 0;
+            background: #000;
+        }
+        .video-wrapper iframe, .video-wrapper video, .video-wrapper embed, .video-wrapper object {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        /* Style pour le Test 5 (Fake Player) */
+        .fake-player {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #333;
+            display: flex; justify-content: center; align-items: center;
+            text-decoration: none; color: white; transition: 0.3s;
+        }
+        .fake-player:hover { background-color: #222; }
+        .play-btn {
+            font-size: 50px; background: rgba(255,0,0,0.8);
+            border-radius: 50%; width: 80px; height: 80px;
+            display: flex; justify-content: center; align-items: center;
+        }
     </style>
 </head>
 <body>
 
-    <h1>Les souvenirs de l'asso</h1>
-    <p>Page de test pour l'intégration de vidéos hébergées sur Google Drive.</p>
+    <h1>Tests d'intégration Vidéo Google Drive</h1>
+    <p>ID de la vidéo : <strong>1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7</strong></p>
 
-    <div class="video-container">
-        <h2>Méthode 1 : Lecteur Drive (Iframe /preview)</h2>
-        <p>Utilise le paramètre <code>/preview</code>. C'est généralement la méthode la plus fiable.</p>
-        <iframe 
-            src="https://drive.google.com/file/d/1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7/preview" 
-            width="100%" 
-            height="450" 
-            allow="autoplay" 
-            allowfullscreen>
-        </iframe>
+    <div class="test-container">
+        <h2>Test 1 : Iframe avec "/preview" (Officiel)</h2>
+        <div class="explanation">
+            <strong>Explication :</strong> C'est la seule méthode officiellement supportée par Google. Elle charge le lecteur complet de Google Drive. L'inconvénient est que vous ne pouvez pas personnaliser le lecteur (couleurs, contrôles) et l'utilisateur voit qu'il s'agit de Google Drive.
+        </div>
+        <div class="video-wrapper">
+            <iframe src="https://drive.google.com/file/d/1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7/preview" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+        </div>
     </div>
 
-    <div class="video-container">
-        <h2>Méthode 2 : Balise HTML5 (Lien direct export)</h2>
-        <p>Utilise l'ID du fichier avec le paramètre <code>uc?export=download</code>. 
-           <em>Note : Cette méthode échoue souvent si le fichier est volumineux ou si Google détecte un usage excessif hors interface.</em></p>
-        <video width="100%" controls>
-            <source src="https://drive.google.com/uc?export=download&id=1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7" type="video/mp4">
-            Votre navigateur ne supporte pas la lecture de vidéos HTML5.
-        </video>
+    <div class="test-container">
+        <h2>Test 2 : Balise HTML5 avec lien "export=download"</h2>
+        <div class="explanation">
+            <strong>Explication :</strong> Tentative de forcer la lecture native en utilisant l'URL de téléchargement direct. <em>Résultat attendu :</em> Cela risque de ne pas fonctionner si la vidéo est trop lourde, car Google Drive intercepte le lien pour afficher une page HTML demandant de "Confirmer le téléchargement malgré l'impossibilité d'analyser les virus".
+        </div>
+        <div class="video-wrapper">
+            <video controls>
+                <source src="https://drive.google.com/uc?export=download&id=1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7" type="video/mp4">
+                Votre navigateur ne supporte pas la balise vidéo.
+            </video>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test 3 : Balise HTML5 avec lien "export=view"</h2>
+        <div class="explanation">
+            <strong>Explication :</strong> Une alternative au téléchargement, ce paramètre d'URL tente de requérir le flux de visualisation brute. Parfois utilisé pour contourner les erreurs CORS de l'API Drive.
+        </div>
+        <div class="video-wrapper">
+            <video controls>
+                <source src="https://drive.google.com/uc?export=view&id=1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7" type="video/mp4">
+                Votre navigateur ne supporte pas la balise vidéo.
+            </video>
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test 4 : Intégration via balise &lt;embed&gt;</h2>
+        <div class="explanation">
+            <strong>Explication :</strong> Utilisation de la balise HTML historique pour voir si l'intégration "preview" réagit mieux ou charge plus vite qu'un iframe complet.
+        </div>
+        <div class="video-wrapper">
+            <embed src="https://drive.google.com/file/d/1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7/preview" width="100%" height="100%">
+        </div>
+    </div>
+
+    <div class="test-container">
+        <h2>Test 5 : Méthode Fallback "Fake Player"</h2>
+        <div class="explanation">
+            <strong>Explication :</strong> Étant donné que les liens directs (tests 2 et 3) peuvent arrêter de fonctionner à tout moment suite à des mises à jour de Google (changement de règles CORS, limites de bande passante dépassées), cette méthode crée un faux lecteur. L'utilisateur clique sur "Play" et la vidéo s'ouvre directement sur Google Drive dans un nouvel onglet, garantissant une lecture à 100%.
+        </div>
+        <div class="video-wrapper">
+            <a href="https://drive.google.com/file/d/1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7/view" target="_blank" class="fake-player">
+                <div class="play-btn">▶</div>
+            </a>
+        </div>
     </div>
 
 </body>
