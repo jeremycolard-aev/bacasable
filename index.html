@@ -2,76 +2,115 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Ma Galerie Vidéo Drive</title>
+    <title>Galerie Média Triée</title>
     <style>
-        body { font-family: sans-serif; background: #1a1a1a; color: white; padding: 20px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: white; padding: 30px; }
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
         }
-        .video-card {
-            background: #333;
-            padding: 10px;
-            border-radius: 10px;
-        }
-        .video-wrapper {
-            position: relative;
-            padding-bottom: 56.25%; /* 16:9 */
-            height: 0;
+        .media-card {
+            background: #1e1e1e;
+            border-radius: 12px;
             overflow: hidden;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
         }
-        .video-wrapper iframe {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        .media-card:hover { transform: translateY(-5px); }
+        
+        /* Conteneur pour garder un ratio propre */
+        .media-container {
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .media-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Remplit le cadre, vous pouvez mettre 'contain' */
+        }
+
+        .media-container iframe {
+            width: 100%;
+            height: 100%;
             border: none;
         }
-        h3 { font-size: 1rem; margin: 10px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .loading { text-align: center; font-style: italic; color: #888; }
+
+        .info { padding: 15px; }
+        .info h3 { font-size: 0.9rem; margin: 0; color: #e0e0e0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            font-size: 0.7rem;
+            border-radius: 4px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .badge-photo { background: #3498db; }
+        .badge-video { background: #e74c3c; }
+
+        .loading { text-align: center; padding: 50px; font-size: 1.2rem; color: #888; }
     </style>
 </head>
 <body>
 
-    <h1>Ma Galerie Vidéo</h1>
-    <div id="loader" class="loading">Chargement des vidéos depuis Google Drive...</div>
-    <div class="grid" id="video-grid"></div>
+    <h1>Galerie Photo & Vidéo</h1>
+    <div id="loader" class="loading">Récupération des médias et conversion Base64 en cours...</div>
+    <div class="grid" id="gallery"></div>
 
     <script>
-        // REMPLACEZ PAR VOTRE URL APPS SCRIPT
         const APP_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbywxxxaIK1InIRGEUVfhJyRXpuwlFYM6zJJPStMwbqcYaQybr1SVylKNHSh3UauNnht/exec';
 
-        async function loadVideos() {
+        async function loadGallery() {
             try {
                 const response = await fetch(APP_SCRIPT_URL);
-                const videos = await response.json();
+                const items = await response.json();
                 
-                const grid = document.getElementById('video-grid');
+                const gallery = document.getElementById('gallery');
                 const loader = document.getElementById('loader');
                 
-                if (videos.length === 0) {
-                    loader.innerText = "Aucune vidéo trouvée.";
+                if (items.length === 0) {
+                    loader.innerText = "Le dossier est vide.";
                     return;
                 }
 
                 loader.style.display = 'none';
 
-                videos.forEach(video => {
+                items.forEach(item => {
                     const card = document.createElement('div');
-                    card.className = 'video-card';
+                    card.className = 'media-card';
+                    
+                    let mediaHTML = '';
+                    if (item.type === 'photo') {
+                        // Utilisation du Base64 directement dans le src
+                        mediaHTML = `<img src="${item.data}" alt="${item.name}">`;
+                    } else {
+                        // Utilisation de l'Iframe pour les vidéos
+                        mediaHTML = `<iframe src="https://drive.google.com/file/d/${item.id}/preview"></iframe>`;
+                    }
+
                     card.innerHTML = `
-                        <div class="video-wrapper">
-                            <iframe src="https://drive.google.com/file/d/${video.id}/preview"></iframe>
+                        <div class="media-container">${mediaHTML}</div>
+                        <div class="info">
+                            <span class="badge badge-${item.type}">${item.type}</span>
+                            <h3>${item.name}</h3>
                         </div>
-                        <h3>${video.name}</h3>
                     `;
-                    grid.appendChild(card);
+                    gallery.appendChild(card);
                 });
             } catch (error) {
-                console.error("Erreur:", error);
-                document.getElementById('loader').innerText = "Erreur lors du chargement.";
+                console.error(error);
+                document.getElementById('loader').innerText = "Erreur lors de la récupération des données.";
             }
         }
 
-        loadVideos();
+        loadGallery();
     </script>
 </body>
 </html>
