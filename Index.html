@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Les souvenirs de l'asso - Test Vidéo</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 20px auto; padding: 0 15px; line-height: 1.6; }
+        .video-container { margin-bottom: 40px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; }
+        h2 { color: #2c3e50; }
+        code { background: #eee; padding: 2px 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>Les souvenirs de l'asso</h1>
+    <p>Page de test pour l'intégration de vidéos hébergées sur Google Drive.</p>
+
+    <div class="video-container">
+        <h2>Méthode 1 : Lecteur Drive (Iframe /preview)</h2>
+        <p>Utilise le paramètre <code>/preview</code>. C'est généralement la méthode la plus fiable.</p>
+        <iframe 
+            src="https://drive.google.com/file/d/1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7/preview" 
+            width="100%" 
+            height="450" 
+            allow="autoplay" 
+            allowfullscreen>
+        </iframe>
+    </div>
+
+    <div class="video-container">
+        <h2>Méthode 2 : Balise HTML5 (Lien direct export)</h2>
+        <p>Utilise l'ID du fichier avec le paramètre <code>uc?export=download</code>. 
+           <em>Note : Cette méthode échoue souvent si le fichier est volumineux ou si Google détecte un usage excessif hors interface.</em></p>
+        <video width="100%" controls>
+            <source src="https://drive.google.com/uc?export=download&id=1UcoUtKYGOgM1C5UJYnGpZaGHiTCW_HZ7" type="video/mp4">
+            Votre navigateur ne supporte pas la lecture de vidéos HTML5.
+        </video>
+    </div>
+
+</body>
+</html>
