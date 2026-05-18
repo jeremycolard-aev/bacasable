@@ -13,34 +13,29 @@
     button:hover:not(:disabled) { background: #357ae8; }
     button:disabled { background: #ccc; cursor: not-allowed; }
     button.secondary { background: white; color: #4285f4; border: 2px solid #4285f4; }
-    button.secondary:hover:not(:disabled) { background: #f0f5ff; }
     .animals { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
     .animals button.selected { background: #34a853; }
     video, img { width: 100%; max-width: 500px; display: block; margin: 15px auto; border-radius: 8px; background: #000; }
     canvas { display: none; }
-    input[type="email"] { padding: 12px; font-size: 15px; border: 2px solid #ddd; border-radius: 8px; width: 280px; max-width: 90%; }
-    input[type="email"]:focus { border-color: #4285f4; outline: none; }
-    #status, #permStatus, #emailStatus { text-align: center; min-height: 24px; font-style: italic; margin: 10px 0; }
+    input[type="email"], input[type="text"] { padding: 12px; font-size: 15px; border: 2px solid #ddd; border-radius: 8px; width: 280px; max-width: 90%; margin: 5px; }
+    input:focus { border-color: #4285f4; outline: none; }
+    #status, #permStatus, #emailStatus, #logStatus { text-align: center; min-height: 24px; font-style: italic; margin: 10px 0; }
     .error { color: #d33; font-weight: bold; }
     .success { color: #0a0; font-weight: bold; }
     .center { text-align: center; }
-    p { margin: 10px 0; }
+    .form-row { display: flex; flex-direction: column; align-items: center; gap: 5px; }
   </style>
 </head>
 <body>
   <h1>🐾 Animal Transformer</h1>
 
-  <!-- ÉTAPE 1 : Permission webcam -->
   <div class="step" id="step1">
     <h2>1️⃣ Activer la webcam</h2>
-    <p style="text-align:center;color:#666;">L'application a besoin d'accéder à ta webcam pour prendre une photo.</p>
-    <div class="center">
-      <button id="askPermission">🎥 Activer la webcam</button>
-    </div>
+    <p style="text-align:center;color:#666;">L'application a besoin d'accéder à ta webcam.</p>
+    <div class="center"><button id="askPermission">🎥 Activer la webcam</button></div>
     <div id="permStatus"></div>
   </div>
 
-  <!-- ÉTAPE 2 : Capture photo -->
   <div class="step disabled" id="step2">
     <h2>2️⃣ Prendre la photo</h2>
     <video id="video" autoplay playsinline muted></video>
@@ -52,7 +47,6 @@
     </div>
   </div>
 
-  <!-- ÉTAPE 3 : Choix animal + transformation -->
   <div class="step disabled" id="step3">
     <h2>3️⃣ Choisir un animal et transformer</h2>
     <div class="animals">
@@ -61,50 +55,49 @@
       <button data-animal="lapin">🐰 Lapin</button>
       <button data-animal="chat">🐱 Chat</button>
     </div>
-    <div class="center" style="margin-top:15px">
-      <button id="transform" disabled>✨ Transformer</button>
-    </div>
+    <div class="center" style="margin-top:15px"><button id="transform" disabled>✨ Transformer</button></div>
     <div id="status"></div>
     <img id="result" style="display:none">
   </div>
 
-  <!-- ÉTAPE 4 : Envoi par email -->
   <div class="step disabled" id="step4">
-    <h2>4️⃣ Recevoir par email (optionnel)</h2>
-    <p style="text-align:center;color:#666;">Saisis ton email pour recevoir l'image dans ta boîte mail.</p>
-    <div class="center">
+    <h2>4️⃣ Recevoir par email</h2>
+    <p style="text-align:center;color:#666;">Saisis ton nom et ton email pour recevoir l'image.</p>
+    <div class="form-row">
+      <input type="text" id="nomInput" placeholder="Ton nom">
       <input type="email" id="emailInput" placeholder="ton@email.com">
-      <br>
-      <button id="sendEmail" disabled style="margin-top:10px;">📧 Envoyer</button>
+    </div>
+    <div id="logStatus"></div>
+    <div class="center">
+      <button id="sendEmail" disabled>📧 Envoyer l'image par mail</button>
     </div>
     <div id="emailStatus"></div>
   </div>
 
-  <!-- Recommencer -->
   <div class="center">
     <button id="restart" class="secondary" style="display:none">🔁 Recommencer</button>
   </div>
 
   <script>
-    // ⚙️ CONFIG — à remplacer
+    // ⚙️ CONFIG
     const API_URL = 'https://script.google.com/macros/s/AKfycbzHLTDCdiaQdvQCjlGMiLzmFI0ttnpNlZ8BwQR--4zE18YdpFlVLw9p-tkIN7CcjBu8/exec';
     const SECRET = 'ton-uuid-secret';
+    const LOGO_URL = 'https://raw.githubusercontent.com/jeremycolard-aev/bacasable/main/logo-aceo-transparent.png';
 
     // State
     let stream = null;
     let capturedBase64 = null;
-    let transformedImage = null;
+    let transformedImage = null;    // image finale (avec logo) - utilisée pour le mail
     let selectedAnimal = null;
+    let userLogged = false;          // évite de logger plusieurs fois
 
     const $ = id => document.getElementById(id);
 
     // ========== ÉTAPE 1 : Permission webcam ==========
     $('askPermission').onclick = async () => {
-      $('permStatus').innerHTML = '<p>⏳ Demande d\'autorisation en cours...</p>';
+      $('permStatus').innerHTML = '<p>⏳ Demande d\'autorisation...</p>';
       try {
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          throw new Error('getUserMedia non supporté par ce navigateur');
-        }
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia non supporté');
         stream = await navigator.mediaDevices.getUserMedia({
           video: { width: 1280, height: 720, facingMode: 'user' },
           audio: false
@@ -117,9 +110,9 @@
         $('capture').disabled = false;
       } catch (err) {
         let msg = err.message;
-        if (err.name === 'NotAllowedError') msg = 'Tu as refusé l\'accès à la webcam. Clique sur l\'icône caméra dans la barre d\'adresse pour autoriser.';
-        if (err.name === 'NotFoundError') msg = 'Aucune webcam détectée sur cet ordinateur.';
-        if (err.name === 'NotReadableError') msg = 'La webcam est déjà utilisée par une autre application.';
+        if (err.name === 'NotAllowedError') msg = 'Tu as refusé l\'accès à la webcam.';
+        if (err.name === 'NotFoundError') msg = 'Aucune webcam détectée.';
+        if (err.name === 'NotReadableError') msg = 'Webcam déjà utilisée par une autre app.';
         $('permStatus').innerHTML = '<p class="error">❌ ' + msg + '</p>';
       }
     };
@@ -156,7 +149,7 @@
       selectedAnimal = null;
     };
 
-    // ========== ÉTAPE 3 : Sélection animal + transformation ==========
+    // ========== ÉTAPE 3 : Sélection + transformation ==========
     document.querySelectorAll('.animals button').forEach(btn => {
       btn.onclick = () => {
         document.querySelectorAll('.animals button').forEach(b => b.classList.remove('selected'));
@@ -165,6 +158,45 @@
         $('transform').disabled = !capturedBase64;
       };
     });
+
+    // Charge une image depuis une URL et la retourne comme objet Image
+    function loadImage(src) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous'; // nécessaire pour exporter le canvas
+        img.onload = () => resolve(img);
+        img.onerror = () => reject(new Error('Échec chargement: ' + src));
+        img.src = src;
+      });
+    }
+
+    // Compose l'image générée + logo en bas à droite
+    async function addLogoToImage(baseImageDataUrl) {
+      const [baseImg, logoImg] = await Promise.all([
+        loadImage(baseImageDataUrl),
+        loadImage(LOGO_URL)
+      ]);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = baseImg.width;
+      canvas.height = baseImg.height;
+      const ctx = canvas.getContext('2d');
+
+      // Dessin de l'image de base
+      ctx.drawImage(baseImg, 0, 0);
+
+      // Logo en bas à droite : ~15% de la largeur, avec marge
+      const logoWidth = baseImg.width * 0.15;
+      const ratio = logoImg.height / logoImg.width;
+      const logoHeight = logoWidth * ratio;
+      const margin = baseImg.width * 0.02;
+      const x = baseImg.width - logoWidth - margin;
+      const y = baseImg.height - logoHeight - margin;
+
+      ctx.drawImage(logoImg, x, y, logoWidth, logoHeight);
+
+      return canvas.toDataURL('image/png');
+    }
 
     $('transform').onclick = async () => {
       $('transform').disabled = true;
@@ -184,29 +216,89 @@
         });
         const data = await res.json();
 
-        if (data.success) {
-          transformedImage = data.image;
-          $('result').src = data.image;
-          $('result').style.display = 'block';
-          $('status').innerHTML = '<span class="success">✅ Transformation réussie !</span>';
-          $('step4').classList.remove('disabled');
-          $('restart').style.display = 'inline-block';
-        } else {
+        if (!data.success) {
           $('status').innerHTML = '<span class="error">❌ ' + data.error + '</span>';
           $('transform').disabled = false;
+          return;
         }
+
+        // Ajout du logo
+        $('status').innerHTML = '⏳ Ajout du logo...';
+        try {
+          transformedImage = await addLogoToImage(data.image);
+        } catch (e) {
+          console.warn('Logo non ajouté:', e);
+          transformedImage = data.image; // fallback sans logo
+        }
+
+        $('result').src = transformedImage;
+        $('result').style.display = 'block';
+        $('status').innerHTML = '<span class="success">✅ Transformation réussie !</span>';
+        $('step4').classList.remove('disabled');
+        $('restart').style.display = 'inline-block';
+
       } catch (err) {
         $('status').innerHTML = '<span class="error">❌ ' + err.message + '</span>';
         $('transform').disabled = false;
       }
     };
 
-    // ========== ÉTAPE 4 : Envoi email ==========
+    // ========== ÉTAPE 4 : Logging + Email ==========
+    const nomInput = $('nomInput');
     const emailInput = $('emailInput');
-    emailInput.addEventListener('input', () => {
-      const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value);
-      $('sendEmail').disabled = !valid;
-    });
+
+    function validateForm() {
+      const nom = nomInput.value.trim();
+      const email = emailInput.value.trim();
+      const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      const formValid = nom.length >= 2 && emailValid;
+      
+      if (formValid && !userLogged) {
+        // Log dès que tout est valide
+        logUser(nom, email);
+      }
+      
+      $('sendEmail').disabled = !formValid;
+    }
+
+    async function logUser(nom, email) {
+      userLogged = true; // optimistic, évite les appels en doublon
+      $('logStatus').innerHTML = '<p>⏳ Enregistrement...</p>';
+      
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'logUser',
+            secret: SECRET,
+            nom: nom,
+            email: email
+          })
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          $('logStatus').innerHTML = '<p class="success">✅ Informations enregistrées</p>';
+        } else {
+          $('logStatus').innerHTML = '<p class="error">⚠️ ' + data.error + '</p>';
+          userLogged = false; // permet de réessayer
+        }
+      } catch (err) {
+        $('logStatus').innerHTML = '<p class="error">⚠️ ' + err.message + '</p>';
+        userLogged = false;
+      }
+    }
+
+    // Debounce pour éviter de spammer l'API à chaque touche
+    let validateTimer = null;
+    function debouncedValidate() {
+      clearTimeout(validateTimer);
+      validateTimer = setTimeout(validateForm, 600);
+    }
+    
+    nomInput.addEventListener('input', debouncedValidate);
+    emailInput.addEventListener('input', debouncedValidate);
 
     $('sendEmail').onclick = async () => {
       $('sendEmail').disabled = true;
@@ -219,7 +311,8 @@
           body: JSON.stringify({
             action: 'sendEmail',
             secret: SECRET,
-            email: emailInput.value,
+            email: emailInput.value.trim(),
+            nom: nomInput.value.trim(),
             image: transformedImage,
             animal: selectedAnimal
           })
@@ -238,7 +331,6 @@
       }
     };
 
-    // ========== Recommencer ==========
     $('restart').onclick = () => location.reload();
   </script>
 </body>
