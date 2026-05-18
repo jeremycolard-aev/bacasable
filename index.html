@@ -1,337 +1,1563 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Animal Transformer</title>
-  <style>
-    body { font-family: -apple-system, sans-serif; max-width: 700px; margin: 20px auto; padding: 20px; }
-    h1 { text-align: center; }
-    .step { background: #f8f9fa; border-radius: 12px; padding: 20px; margin: 15px 0; }
-    .step h2 { margin-top: 0; color: #4285f4; }
-    .step.disabled { opacity: 0.4; pointer-events: none; }
-    button { padding: 12px 24px; font-size: 15px; background: #4285f4; color: white; border: none; border-radius: 8px; cursor: pointer; margin: 5px; }
-    button:hover:not(:disabled) { background: #357ae8; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
-    button.secondary { background: white; color: #4285f4; border: 2px solid #4285f4; }
-    .animals { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-    .animals button.selected { background: #34a853; }
-    video, img { width: 100%; max-width: 500px; display: block; margin: 15px auto; border-radius: 8px; background: #000; }
-    canvas { display: none; }
-    input[type="email"], input[type="text"] { padding: 12px; font-size: 15px; border: 2px solid #ddd; border-radius: 8px; width: 280px; max-width: 90%; margin: 5px; }
-    input:focus { border-color: #4285f4; outline: none; }
-    #status, #permStatus, #emailStatus, #logStatus { text-align: center; min-height: 24px; font-style: italic; margin: 10px 0; }
-    .error { color: #d33; font-weight: bold; }
-    .success { color: #0a0; font-weight: bold; }
-    .center { text-align: center; }
-    .form-row { display: flex; flex-direction: column; align-items: center; gap: 5px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACEO Tech — Photo Booth Agentique</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Bebas+Neue&family=DM+Mono:ital,wght@0,400;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gc-blue: #4285F4;
+    --gc-green: #34A853;
+    --gc-yellow: #FBBC04;
+    --gc-red: #EA4335;
+    --bg: #080C14;
+    --bg2: #0D1320;
+    --bg3: #121929;
+    --surface: #151D2E;
+    --surface2: #1C2640;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #F0F4FF;
+    --muted: rgba(240,244,255,0.45);
+    --accent: #4285F4;
+    --r: 12px;
+    --r2: 20px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    cursor: default;
+    user-select: none;
+  }
+
+  /* ── NOISE TEXTURE ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.6;
+  }
+
+  /* ── GRID LINES ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(66,133,244,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(66,133,244,0.04) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── GLOW ORBS ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(120px);
+    pointer-events: none;
+    z-index: 0;
+    animation: orb-drift 12s ease-in-out infinite alternate;
+  }
+  .orb-1 { width: 600px; height: 600px; background: rgba(66,133,244,0.08); top: -200px; right: -100px; animation-duration: 15s; }
+  .orb-2 { width: 400px; height: 400px; background: rgba(52,168,83,0.06); bottom: -100px; left: -100px; animation-duration: 10s; }
+  .orb-3 { width: 300px; height: 300px; background: rgba(251,188,4,0.05); top: 40%; left: 30%; animation-duration: 18s; }
+
+  @keyframes orb-drift {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(30px, -40px) scale(1.1); }
+  }
+
+  /* ── LAYOUT ── */
+  #app {
+    position: relative;
+    z-index: 1;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 40px;
+    border-bottom: 1px solid var(--border);
+    background: rgba(8,12,20,0.7);
+    backdrop-filter: blur(20px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .logo-img {
+    height: 36px;
+    filter: brightness(1.1);
+  }
+  .logo-sep {
+    width: 1px;
+    height: 28px;
+    background: var(--border2);
+  }
+  .logo-label {
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .header-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border: 1px solid var(--border2);
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+  }
+  .header-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gc-green);
+    box-shadow: 0 0 8px var(--gc-green);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  @keyframes pulse-dot {
+    0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar {
+    position: relative;
+    padding: 0 40px;
+    margin: 0;
+    background: rgba(8,12,20,0.5);
+    border-bottom: 1px solid var(--border);
+  }
+  .progress-track {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    padding: 16px 0;
+  }
+  .progress-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    position: relative;
+    cursor: default;
+  }
+  .step-num {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--border2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface);
+    flex-shrink: 0;
+    transition: all 0.4s ease;
+    font-family: 'DM Mono', monospace;
+  }
+  .step-label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: color 0.4s;
+    white-space: nowrap;
+  }
+  .step-connector {
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+    margin: 0 16px;
+    transition: background 0.6s;
+  }
+  .progress-step.active .step-num {
+    background: var(--gc-blue);
+    border-color: var(--gc-blue);
+    color: white;
+    box-shadow: 0 0 20px rgba(66,133,244,0.4);
+  }
+  .progress-step.active .step-label { color: var(--text); }
+  .progress-step.done .step-num {
+    background: var(--gc-green);
+    border-color: var(--gc-green);
+    color: white;
+  }
+  .progress-step.done .step-label { color: var(--gc-green); }
+  .step-connector.done { background: var(--gc-green); }
+
+  /* ── MAIN ── */
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+  }
+
+  /* ── SCREEN PANELS ── */
+  .screen {
+    display: none;
+    width: 100%;
+    max-width: 900px;
+    animation: fadeUp 0.5s cubic-bezier(0.22,1,0.36,1) both;
+  }
+  .screen.active { display: block; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── TITLES ── */
+  .screen-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--gc-blue);
+    margin-bottom: 12px;
+  }
+  .screen-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(48px, 7vw, 80px);
+    letter-spacing: 0.02em;
+    line-height: 0.95;
+    color: var(--text);
+    margin-bottom: 16px;
+  }
+  .screen-title span { color: var(--gc-blue); }
+  .screen-sub {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 520px;
+    line-height: 1.6;
+    margin-bottom: 40px;
+  }
+
+  /* ── CARDS ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    padding: 28px;
+    transition: border-color 0.3s, transform 0.3s;
+  }
+  .card:hover { border-color: var(--border2); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 28px;
+    border-radius: var(--r);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s ease;
+    letter-spacing: 0.02em;
+  }
+  .btn-primary {
+    background: var(--gc-blue);
+    color: white;
+    box-shadow: 0 0 30px rgba(66,133,244,0.25);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: #5a95f5;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 40px rgba(66,133,244,0.4);
+  }
+  .btn-primary:active:not(:disabled) { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover:not(:disabled) {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: rgba(255,255,255,0.2);
+  }
+  .btn-ghost:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .btn-danger {
+    background: rgba(234,67,53,0.15);
+    color: #f87171;
+    border: 1px solid rgba(234,67,53,0.3);
+  }
+  .btn-danger:hover { background: rgba(234,67,53,0.25); }
+
+  /* ── SCREEN 1 — WELCOME ── */
+  #s-welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 60px 0;
+  }
+  .welcome-logo {
+    height: 56px;
+    margin-bottom: 32px;
+    filter: drop-shadow(0 0 20px rgba(66,133,244,0.4));
+    animation: logo-glow 3s ease-in-out infinite alternate;
+  }
+  @keyframes logo-glow {
+    from { filter: drop-shadow(0 0 20px rgba(66,133,244,0.3)); }
+    to   { filter: drop-shadow(0 0 40px rgba(66,133,244,0.6)); }
+  }
+  .welcome-event {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: rgba(66,133,244,0.1);
+    border: 1px solid rgba(66,133,244,0.25);
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #93bbff;
+    margin-bottom: 28px;
+  }
+  .google-dots {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 40px;
+  }
+  .gdot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    animation: gdot-bounce 1.4s ease-in-out infinite;
+  }
+  .gdot:nth-child(1) { background: var(--gc-blue); animation-delay: 0s; }
+  .gdot:nth-child(2) { background: var(--gc-red); animation-delay: 0.15s; }
+  .gdot:nth-child(3) { background: var(--gc-yellow); animation-delay: 0.3s; }
+  .gdot:nth-child(4) { background: var(--gc-green); animation-delay: 0.45s; }
+  @keyframes gdot-bounce {
+    0%,80%,100% { transform: translateY(0); }
+    40% { transform: translateY(-8px); }
+  }
+
+  /* ── SCREEN 2 — WEBCAM ── */
+  #s-webcam .cam-frame {
+    position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    overflow: hidden;
+    aspect-ratio: 16/9;
+    max-width: 700px;
+    margin: 0 auto 32px;
+  }
+  #video, #photo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transform: scaleX(-1);
+  }
+  #photo { transform: none; }
+  .cam-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .cam-corner {
+    position: absolute;
+    width: 28px; height: 28px;
+    border-color: var(--gc-blue);
+    border-style: solid;
+  }
+  .cam-corner.tl { top: 16px; left: 16px; border-width: 2px 0 0 2px; }
+  .cam-corner.tr { top: 16px; right: 16px; border-width: 2px 2px 0 0; }
+  .cam-corner.bl { bottom: 16px; left: 16px; border-width: 0 0 2px 2px; }
+  .cam-corner.br { bottom: 16px; right: 16px; border-width: 0 2px 2px 0; }
+  .cam-scan {
+    position: absolute;
+    left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--gc-blue), transparent);
+    animation: scan 2.5s ease-in-out infinite;
+  }
+  @keyframes scan {
+    0%   { top: 15%; opacity: 0; }
+    10%  { opacity: 1; }
+    90%  { opacity: 1; }
+    100% { top: 85%; opacity: 0; }
+  }
+  .cam-live-badge {
+    position: absolute;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 12px;
+    background: rgba(8,12,20,0.8);
+    border: 1px solid rgba(234,67,53,0.4);
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: #f87171;
+    backdrop-filter: blur(10px);
+  }
+  .cam-live-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--gc-red);
+    animation: pulse-dot 1s infinite;
+  }
+  canvas { display: none; }
+  .cam-actions { display: flex; justify-content: center; gap: 16px; }
+
+  /* ── SCREEN 3 — ARCHETYPES ── */
+  .archetype-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+  .arch-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r2);
+    padding: 24px 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .arch-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--r2);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .arch-card[data-archetype="data-wrangler"]::before { background: radial-gradient(circle at 50% 0%, rgba(66,133,244,0.15), transparent 70%); }
+  .arch-card[data-archetype="cloud-architect"]::before { background: radial-gradient(circle at 50% 0%, rgba(52,168,83,0.15), transparent 70%); }
+  .arch-card[data-archetype="ai-sorcerer"]::before { background: radial-gradient(circle at 50% 0%, rgba(251,188,4,0.15), transparent 70%); }
+  .arch-card[data-archetype="security-sentinel"]::before { background: radial-gradient(circle at 50% 0%, rgba(234,67,53,0.15), transparent 70%); }
+
+  .arch-card:hover, .arch-card.selected {
+    transform: translateY(-4px);
+    border-color: var(--arch-color, var(--gc-blue));
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+  }
+  .arch-card:hover::before, .arch-card.selected::before { opacity: 1; }
+
+  .arch-card.selected .arch-check { opacity: 1; }
+
+  .arch-check {
+    position: absolute;
+    top: 12px; right: 12px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--gc-green);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .arch-check svg { width: 12px; height: 12px; stroke: white; stroke-width: 2.5; fill: none; }
+
+  .arch-icon {
+    font-size: 48px;
+    margin-bottom: 14px;
+    display: block;
+    transition: transform 0.3s;
+  }
+  .arch-card:hover .arch-icon { transform: scale(1.15) rotate(-5deg); }
+
+  .arch-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .arch-desc {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .arch-badge {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  [data-archetype="data-wrangler"] { --arch-color: var(--gc-blue); }
+  [data-archetype="data-wrangler"] .arch-badge { background: rgba(66,133,244,0.15); color: #93bbff; }
+  [data-archetype="cloud-architect"] { --arch-color: var(--gc-green); }
+  [data-archetype="cloud-architect"] .arch-badge { background: rgba(52,168,83,0.15); color: #86efac; }
+  [data-archetype="ai-sorcerer"] { --arch-color: var(--gc-yellow); }
+  [data-archetype="ai-sorcerer"] .arch-badge { background: rgba(251,188,4,0.15); color: #fde68a; }
+  [data-archetype="security-sentinel"] { --arch-color: var(--gc-red); }
+  [data-archetype="security-sentinel"] .arch-badge { background: rgba(234,67,53,0.15); color: #fca5a5; }
+
+  /* ── SCREEN 4 — GENERATING ── */
+  #s-generating {
+    text-align: center;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+  .gen-visual {
+    position: relative;
+    width: 200px;
+    height: 200px;
+    margin: 0 auto 40px;
+  }
+  .gen-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    animation: ring-spin 3s linear infinite;
+  }
+  .gen-ring:nth-child(1) {
+    border-top-color: var(--gc-blue);
+    animation-duration: 2s;
+  }
+  .gen-ring:nth-child(2) {
+    inset: 16px;
+    border-top-color: var(--gc-green);
+    border-right-color: var(--gc-green);
+    animation-duration: 3s;
+    animation-direction: reverse;
+  }
+  .gen-ring:nth-child(3) {
+    inset: 32px;
+    border-top-color: var(--gc-yellow);
+    animation-duration: 1.5s;
+  }
+  .gen-center {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px; height: 80px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    animation: pulse-scale 2s ease-in-out infinite;
+  }
+  @keyframes pulse-scale {
+    0%,100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(1.08); }
+  }
+  @keyframes ring-spin {
+    to { transform: rotate(360deg); }
+  }
+  .gen-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 32px;
+    text-align: left;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .gen-step-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    font-size: 13px;
+    opacity: 0.3;
+    transition: all 0.5s ease;
+  }
+  .gen-step-item.active {
+    opacity: 1;
+    border-color: var(--gc-blue);
+    background: rgba(66,133,244,0.08);
+  }
+  .gen-step-item.done {
+    opacity: 1;
+    border-color: rgba(52,168,83,0.3);
+    background: rgba(52,168,83,0.05);
+  }
+  .gen-step-item.done .step-icon { color: var(--gc-green); }
+  .gen-step-item.active .step-icon { color: var(--gc-blue); animation: pulse-dot 1s infinite; }
+  .step-icon { font-size: 18px; width: 24px; text-align: center; }
+  .step-text { flex: 1; }
+  .step-text strong { display: block; font-weight: 600; }
+  .step-text span { color: var(--muted); font-size: 11px; }
+  .lore-stream {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gc-blue);
+    border-radius: var(--r);
+    padding: 20px 24px;
+    font-style: italic;
+    color: var(--muted);
+    font-size: 15px;
+    line-height: 1.7;
+    max-width: 500px;
+    margin: 0 auto;
+    min-height: 70px;
+    font-family: 'DM Mono', monospace;
+  }
+  .cursor-blink {
+    display: inline-block;
+    width: 2px;
+    height: 1em;
+    background: var(--gc-blue);
+    margin-left: 2px;
+    vertical-align: middle;
+    animation: blink 0.8s step-end infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── SCREEN 5 — REVEAL ── */
+  #s-reveal {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: center;
+  }
+  .reveal-image-wrap {
+    position: relative;
+    border-radius: var(--r2);
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    aspect-ratio: 4/5;
+  }
+  .reveal-image-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    animation: reveal-flash 0.6s ease-out;
+  }
+  @keyframes reveal-flash {
+    0% { opacity: 0; transform: scale(1.05); filter: brightness(2); }
+    100% { opacity: 1; transform: scale(1); filter: brightness(1); }
+  }
+  .reveal-glow {
+    position: absolute;
+    inset: -2px;
+    border-radius: var(--r2);
+    border: 2px solid var(--gc-blue);
+    box-shadow: 0 0 40px rgba(66,133,244,0.4), inset 0 0 40px rgba(66,133,244,0.05);
+    pointer-events: none;
+    animation: reveal-glow-pulse 2s ease-in-out infinite;
+  }
+  @keyframes reveal-glow-pulse {
+    0%,100% { box-shadow: 0 0 40px rgba(66,133,244,0.4), inset 0 0 40px rgba(66,133,244,0.05); }
+    50% { box-shadow: 0 0 60px rgba(66,133,244,0.6), inset 0 0 60px rgba(66,133,244,0.08); }
+  }
+  .reveal-watermark {
+    position: absolute;
+    bottom: 14px;
+    right: 14px;
+    opacity: 0.7;
+    height: 28px;
+    filter: brightness(2);
+  }
+  .reveal-content {}
+  .reveal-archetype-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    border: 1px solid;
+  }
+  .reveal-name {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 64px;
+    letter-spacing: 0.04em;
+    line-height: 0.9;
+    margin-bottom: 20px;
+    color: var(--text);
+  }
+  .reveal-lore {
+    font-size: 15px;
+    font-style: italic;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 28px;
+    padding: 16px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gc-blue);
+    border-radius: var(--r);
+    font-family: 'DM Mono', monospace;
+  }
+  .reveal-actions { display: flex; gap: 12px; flex-wrap: wrap; }
+
+  /* ── SCREEN 6 — EMAIL ── */
+  #s-email {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+  .form-field {
+    margin-bottom: 16px;
+  }
+  .form-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  .form-field input {
+    width: 100%;
+    padding: 14px 18px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-field input:focus {
+    border-color: var(--gc-blue);
+    box-shadow: 0 0 0 3px rgba(66,133,244,0.12);
+  }
+  .form-field input::placeholder { color: rgba(240,244,255,0.25); }
+
+  .status-msg {
+    padding: 12px 18px;
+    border-radius: var(--r);
+    font-size: 14px;
+    margin-top: 16px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  .status-msg.info  { display: flex; background: rgba(66,133,244,0.1); border: 1px solid rgba(66,133,244,0.2); color: #93bbff; }
+  .status-msg.error { display: flex; background: rgba(234,67,53,0.1); border: 1px solid rgba(234,67,53,0.2); color: #fca5a5; }
+  .status-msg.success { display: flex; background: rgba(52,168,83,0.1); border: 1px solid rgba(52,168,83,0.2); color: #86efac; }
+
+  /* ── NOTIFICATION TOAST ── */
+  #toast {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: var(--r);
+    padding: 14px 24px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    backdrop-filter: blur(20px);
+    transition: transform 0.4s cubic-bezier(0.22,1,0.36,1);
+    z-index: 999;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* ── FOOTER ── */
+  footer {
+    text-align: center;
+    padding: 20px;
+    font-size: 11px;
+    color: rgba(240,244,255,0.2);
+    letter-spacing: 0.06em;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── CONSENT MODAL ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(8px);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    display: none;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal-box {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--r2);
+    padding: 40px;
+    max-width: 520px;
+    width: 90%;
+    animation: fadeUp 0.4s ease;
+  }
+  .modal-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 32px;
+    letter-spacing: 0.04em;
+    margin-bottom: 16px;
+  }
+  .modal-text {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.7;
+    margin-bottom: 24px;
+  }
+  .modal-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 28px;
+  }
+  .modal-badge {
+    padding: 5px 12px;
+    border-radius: 100px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    background: rgba(52,168,83,0.1);
+    border: 1px solid rgba(52,168,83,0.2);
+    color: #86efac;
+  }
+  .modal-actions { display: flex; gap: 12px; }
+
+  /* ── ANIMATIONS ── */
+  @keyframes shimmer {
+    0% { background-position: -200% center; }
+    100% { background-position: 200% center; }
+  }
+  .shimmer {
+    background: linear-gradient(90deg, var(--muted) 25%, rgba(240,244,255,0.8) 50%, var(--muted) 75%);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 2s linear infinite;
+  }
+</style>
 </head>
 <body>
-  <h1>🐾 Animal Transformer</h1>
 
-  <div class="step" id="step1">
-    <h2>1️⃣ Activer la webcam</h2>
-    <p style="text-align:center;color:#666;">L'application a besoin d'accéder à ta webcam.</p>
-    <div class="center"><button id="askPermission">🎥 Activer la webcam</button></div>
-    <div id="permStatus"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- CONSENT MODAL -->
+<div class="modal-overlay" id="consentModal">
+  <div class="modal-box">
+    <div class="screen-eyebrow">RGPD · Consentement</div>
+    <div class="modal-title">Votre vie privée nous importe</div>
+    <div class="modal-text">
+      ACEO Tech va prendre une photo de vous pour générer un avatar stylisé via l'IA Google Cloud Gemini. Votre photo brute sera supprimée immédiatement après la génération. L'avatar sera conservé <strong>30 jours</strong> pour vous permettre de le télécharger, puis supprimé définitivement. Aucune image ne sera utilisée pour entraîner un modèle d'IA.
+    </div>
+    <div class="modal-badges">
+      <span class="modal-badge">✓ Photo supprimée après génération</span>
+      <span class="modal-badge">✓ Avatar conservé 30 jours</span>
+      <span class="modal-badge">✓ Aucun entraînement IA</span>
+      <span class="modal-badge">✓ RGPD compliant</span>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="consentAccept()" style="flex:1">J'accepte et continue →</button>
+      <button class="btn btn-ghost" onclick="consentDecline()">Refuser</button>
+    </div>
   </div>
+</div>
 
-  <div class="step disabled" id="step2">
-    <h2>2️⃣ Prendre la photo</h2>
-    <video id="video" autoplay playsinline muted></video>
-    <img id="photo" style="display:none">
-    <canvas id="canvas"></canvas>
-    <div class="center">
-      <button id="capture" disabled>📸 Capturer</button>
-      <button id="retake" class="secondary" style="display:none">🔄 Reprendre</button>
+<div id="app">
+  <header>
+    <div class="logo-wrap">
+      <img class="logo-img" src="https://raw.githubusercontent.com/jeremycolard-aev/bacasable/main/logo-aceo-transparent.png" alt="ACEO Tech" onerror="this.style.display='none'">
+      <div class="logo-sep"></div>
+      <span class="logo-label">Photo Booth Agentique</span>
+    </div>
+    <div class="header-badge">GOOGLE CLOUD SUMMIT 2026</div>
+  </header>
+
+  <!-- PROGRESS -->
+  <div class="progress-bar">
+    <div class="progress-track">
+      <div class="progress-step" id="prog-1">
+        <div class="step-num">01</div>
+        <div class="step-label">Accueil</div>
+      </div>
+      <div class="step-connector" id="con-1"></div>
+      <div class="progress-step" id="prog-2">
+        <div class="step-num">02</div>
+        <div class="step-label">Photo</div>
+      </div>
+      <div class="step-connector" id="con-2"></div>
+      <div class="progress-step" id="prog-3">
+        <div class="step-num">03</div>
+        <div class="step-label">Archétype</div>
+      </div>
+      <div class="step-connector" id="con-3"></div>
+      <div class="progress-step" id="prog-4">
+        <div class="step-num">04</div>
+        <div class="step-label">Génération</div>
+      </div>
+      <div class="step-connector" id="con-4"></div>
+      <div class="progress-step" id="prog-5">
+        <div class="step-num">05</div>
+        <div class="step-label">Reveal</div>
+      </div>
+      <div class="step-connector" id="con-5"></div>
+      <div class="progress-step" id="prog-6">
+        <div class="step-num">06</div>
+        <div class="step-label">Partage</div>
+      </div>
     </div>
   </div>
 
-  <div class="step disabled" id="step3">
-    <h2>3️⃣ Choisir un animal et transformer</h2>
-    <div class="animals">
-      <button data-animal="chien">🐕 Chien</button>
-      <button data-animal="ours">🐻 Ours</button>
-      <button data-animal="lapin">🐰 Lapin</button>
-      <button data-animal="chat">🐱 Chat</button>
+  <main>
+
+    <!-- S1: WELCOME -->
+    <div class="screen active" id="s-welcome">
+      <img class="welcome-logo" src="https://raw.githubusercontent.com/jeremycolard-aev/bacasable/main/fusee-aceo-transparent.png" alt="ACEO" onerror="this.style.display='none'">
+      <div class="welcome-event">☁ Google Cloud Summit · Paris 2026</div>
+      <div class="screen-title">
+        Devenez un<br><span>Google Cloud Hero</span>
+      </div>
+      <div class="google-dots">
+        <div class="gdot"></div><div class="gdot"></div><div class="gdot"></div><div class="gdot"></div>
+      </div>
+      <div class="screen-sub">
+        Notre agent IA va analyser votre profil et générer un avatar de super-héros cloud personnalisé en moins de 25 secondes. Prêt à rejoindre la légende ?
+      </div>
+      <button class="btn btn-primary" style="font-size:17px; padding:18px 48px;" onclick="startSession()">
+        Lancer l'expérience →
+      </button>
     </div>
-    <div class="center" style="margin-top:15px"><button id="transform" disabled>✨ Transformer</button></div>
-    <div id="status"></div>
-    <img id="result" style="display:none">
-  </div>
 
-  <div class="step disabled" id="step4">
-    <h2>4️⃣ Recevoir par email</h2>
-    <p style="text-align:center;color:#666;">Saisis ton nom et ton email pour recevoir l'image.</p>
-    <div class="form-row">
-      <input type="text" id="nomInput" placeholder="Ton nom">
-      <input type="email" id="emailInput" placeholder="ton@email.com">
+    <!-- S2: WEBCAM -->
+    <div class="screen" id="s-webcam">
+      <div class="screen-eyebrow">Étape 02 · Capture</div>
+      <div class="screen-title">Prenez la pose<span>.</span></div>
+      <div class="screen-sub">Placez-vous face à la caméra. Notre IA analysera vos traits pour personnaliser votre avatar.</div>
+
+      <div class="cam-frame">
+        <video id="video" autoplay playsinline muted></video>
+        <img id="photo" style="display:none; transform:none;">
+        <canvas id="canvas"></canvas>
+        <div class="cam-overlay">
+          <div class="cam-corner tl"></div>
+          <div class="cam-corner tr"></div>
+          <div class="cam-corner bl"></div>
+          <div class="cam-corner br"></div>
+          <div class="cam-scan" id="camScan"></div>
+          <div class="cam-live-badge" id="camLiveBadge">LIVE</div>
+        </div>
+      </div>
+
+      <div class="cam-actions">
+        <button class="btn btn-ghost" onclick="goTo('s-welcome', 1)" id="btnBack2">← Retour</button>
+        <button class="btn btn-primary" id="btnCapture" onclick="capturePhoto()" disabled>📸 Capturer</button>
+        <button class="btn btn-ghost" id="btnRetake" style="display:none" onclick="retakePhoto()">🔄 Reprendre</button>
+        <button class="btn btn-primary" id="btnNext2" style="display:none" onclick="goTo('s-archetype', 3)">Choisir mon archétype →</button>
+      </div>
     </div>
-    <div id="logStatus"></div>
-    <div class="center">
-      <button id="sendEmail" disabled>📧 Envoyer l'image par mail</button>
+
+    <!-- S3: ARCHETYPE -->
+    <div class="screen" id="s-archetype">
+      <div class="screen-eyebrow">Étape 03 · Archétype</div>
+      <div class="screen-title">Qui êtes-<span>vous</span> ?</div>
+      <div class="screen-sub">Choisissez l'archétype Google Cloud qui vous ressemble. Il définira le style de votre avatar et votre lore héroïque.</div>
+
+      <div class="archetype-grid">
+        <div class="arch-card" data-archetype="data-wrangler" onclick="selectArchetype(this)">
+          <div class="arch-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span class="arch-icon">🗄️</span>
+          <div class="arch-name">Data Wrangler</div>
+          <div class="arch-desc">Maître des flux de données, dompte BigQuery et les pipelines les plus rebelles.</div>
+          <span class="arch-badge">BigQuery · Dataflow</span>
+        </div>
+        <div class="arch-card" data-archetype="cloud-architect" onclick="selectArchetype(this)">
+          <div class="arch-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span class="arch-icon">🏗️</span>
+          <div class="arch-name">Cloud Architect</div>
+          <div class="arch-desc">Bâtit des infrastructures indestructibles sur des nuages de code et de kubernetes.</div>
+          <span class="arch-badge">GKE · Cloud Run</span>
+        </div>
+        <div class="arch-card" data-archetype="ai-sorcerer" onclick="selectArchetype(this)">
+          <div class="arch-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span class="arch-icon">🧙</span>
+          <div class="arch-name">AI Sorcerer</div>
+          <div class="arch-desc">Invoque les LLMs et transforme les prompts en or avec Vertex AI et Gemini.</div>
+          <span class="arch-badge">Vertex AI · Gemini</span>
+        </div>
+        <div class="arch-card" data-archetype="security-sentinel" onclick="selectArchetype(this)">
+          <div class="arch-check"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+          <span class="arch-icon">🛡️</span>
+          <div class="arch-name">Security Sentinel</div>
+          <div class="arch-desc">Gardien implacable des secrets et des clés. Aucune faille ne lui résiste.</div>
+          <span class="arch-badge">Chronicle · IAM</span>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-ghost" onclick="goTo('s-webcam', 2)">← Retour</button>
+        <button class="btn btn-primary" id="btnTransform" disabled onclick="startGeneration()" style="font-size:16px; padding:16px 36px;">
+          ✨ Générer mon avatar →
+        </button>
+      </div>
     </div>
-    <div id="emailStatus"></div>
-  </div>
 
-  <div class="center">
-    <button id="restart" class="secondary" style="display:none">🔁 Recommencer</button>
-  </div>
+    <!-- S4: GENERATING -->
+    <div class="screen" id="s-generating">
+      <div class="screen-eyebrow">Étape 04 · Génération</div>
+      <div class="screen-title">L'IA est à l'<span>œuvre</span></div>
 
-  <script>
-    // ⚙️ CONFIG
-    const API_URL = 'https://script.google.com/macros/s/AKfycbzHLTDCdiaQdvQCjlGMiLzmFI0ttnpNlZ8BwQR--4zE18YdpFlVLw9p-tkIN7CcjBu8/exec';
-    const SECRET = 'ton-uuid-secret';
-    const LOGO_URL = 'https://raw.githubusercontent.com/jeremycolard-aev/bacasable/main/logo-aceo-transparent.png';
+      <div class="gen-visual">
+        <div class="gen-ring"></div>
+        <div class="gen-ring"></div>
+        <div class="gen-ring"></div>
+        <div class="gen-center" id="archetypeEmoji">🧙</div>
+      </div>
 
-    // State
-    let stream = null;
-    let capturedBase64 = null;
-    let transformedImage = null;    // image finale (avec logo) - utilisée pour le mail
-    let selectedAnimal = null;
-    let userLogged = false;          // évite de logger plusieurs fois
+      <div class="gen-steps" id="genSteps">
+        <div class="gen-step-item" data-step="1">
+          <span class="step-icon">🔍</span>
+          <div class="step-text">
+            <strong>Analyse faciale</strong>
+            <span>Extraction des traits biométriques</span>
+          </div>
+        </div>
+        <div class="gen-step-item" data-step="2">
+          <span class="step-icon">🎨</span>
+          <div class="step-text">
+            <strong>Construction du prompt</strong>
+            <span>Paramétrage de l'archétype choisi</span>
+          </div>
+        </div>
+        <div class="gen-step-item" data-step="3">
+          <span class="step-icon">⚡</span>
+          <div class="step-text">
+            <strong>Appel Vertex AI · Imagen</strong>
+            <span>Génération de l'image en cours…</span>
+          </div>
+        </div>
+        <div class="gen-step-item" data-step="4">
+          <span class="step-icon">✍️</span>
+          <div class="step-text">
+            <strong>Rédaction de la lore</strong>
+            <span>Gemini rédige votre histoire héroïque</span>
+          </div>
+        </div>
+        <div class="gen-step-item" data-step="5">
+          <span class="step-icon">🚀</span>
+          <div class="step-text">
+            <strong>Finalisation</strong>
+            <span>Ajout du watermark et préparation</span>
+          </div>
+        </div>
+      </div>
 
-    const $ = id => document.getElementById(id);
+      <div class="lore-stream" id="loreStream">
+        <span id="loreText"></span><span class="cursor-blink"></span>
+      </div>
+    </div>
 
-    // ========== ÉTAPE 1 : Permission webcam ==========
-    $('askPermission').onclick = async () => {
-      $('permStatus').innerHTML = '<p>⏳ Demande d\'autorisation...</p>';
-      try {
-        if (!navigator.mediaDevices?.getUserMedia) throw new Error('getUserMedia non supporté');
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 1280, height: 720, facingMode: 'user' },
-          audio: false
-        });
-        $('video').srcObject = stream;
-        await $('video').play();
-        $('permStatus').innerHTML = '<p class="success">✅ Webcam activée !</p>';
-        $('step1').style.display = 'none';
-        $('step2').classList.remove('disabled');
-        $('capture').disabled = false;
-      } catch (err) {
-        let msg = err.message;
-        if (err.name === 'NotAllowedError') msg = 'Tu as refusé l\'accès à la webcam.';
-        if (err.name === 'NotFoundError') msg = 'Aucune webcam détectée.';
-        if (err.name === 'NotReadableError') msg = 'Webcam déjà utilisée par une autre app.';
-        $('permStatus').innerHTML = '<p class="error">❌ ' + msg + '</p>';
-      }
-    };
+    <!-- S5: REVEAL -->
+    <div class="screen" id="s-reveal">
+      <div class="reveal-image-wrap" id="revealWrap">
+        <img id="resultImg" src="" alt="Votre avatar">
+        <div class="reveal-glow"></div>
+        <img class="reveal-watermark" src="https://raw.githubusercontent.com/jeremycolard-aev/bacasable/main/logo-aceo-transparent.png" alt="ACEO" onerror="this.style.display='none'">
+      </div>
+      <div class="reveal-content">
+        <div class="reveal-archetype-badge" id="revealBadge">🧙 AI Sorcerer</div>
+        <div class="reveal-name" id="revealName">HERO</div>
+        <div class="reveal-lore" id="revealLore">Votre lore apparaîtra ici…</div>
+        <div class="reveal-actions">
+          <button class="btn btn-primary" onclick="goTo('s-email', 6)" style="flex:1">Recevoir par email →</button>
+          <button class="btn btn-ghost" onclick="startGeneration()" title="Regénérer">🔄 Regénérer</button>
+        </div>
+      </div>
+    </div>
 
-    // ========== ÉTAPE 2 : Capture ==========
-    $('capture').onclick = () => {
-      const c = $('canvas'), v = $('video');
-      c.width = v.videoWidth;
-      c.height = v.videoHeight;
-      c.getContext('2d').drawImage(v, 0, 0);
-      capturedBase64 = c.toDataURL('image/jpeg', 0.85);
-      $('photo').src = capturedBase64;
-      $('photo').style.display = 'block';
-      v.style.display = 'none';
-      $('capture').style.display = 'none';
-      $('retake').style.display = 'inline-block';
-      $('step3').classList.remove('disabled');
-    };
+    <!-- S6: EMAIL -->
+    <div class="screen" id="s-email">
+      <div class="screen-eyebrow">Étape 06 · Partage</div>
+      <div class="screen-title">Repartez avec <span>votre avatar</span></div>
+      <div class="screen-sub">Recevez votre avatar en haute définition et partagez votre transformation sur LinkedIn.</div>
 
-    $('retake').onclick = () => {
-      $('photo').style.display = 'none';
-      $('video').style.display = 'block';
-      $('capture').style.display = 'inline-block';
-      $('retake').style.display = 'none';
-      capturedBase64 = null;
-      transformedImage = null;
-      $('result').style.display = 'none';
-      $('status').innerHTML = '';
-      $('step3').classList.add('disabled');
-      $('step4').classList.add('disabled');
-      $('transform').disabled = true;
-      $('restart').style.display = 'none';
-      document.querySelectorAll('.animals button').forEach(b => b.classList.remove('selected'));
-      selectedAnimal = null;
-    };
+      <div class="card" style="max-width:560px; margin-bottom:24px;">
+        <div class="form-field">
+          <label>Votre prénom</label>
+          <input type="text" id="nomInput" placeholder="Prénom" autocomplete="off">
+        </div>
+        <div class="form-field">
+          <label>Adresse email</label>
+          <input type="email" id="emailInput" placeholder="vous@example.com" autocomplete="off">
+        </div>
+        <div class="status-msg" id="logStatus"></div>
+      </div>
 
-    // ========== ÉTAPE 3 : Sélection + transformation ==========
-    document.querySelectorAll('.animals button').forEach(btn => {
-      btn.onclick = () => {
-        document.querySelectorAll('.animals button').forEach(b => b.classList.remove('selected'));
-        btn.classList.add('selected');
-        selectedAnimal = btn.dataset.animal;
-        $('transform').disabled = !capturedBase64;
-      };
-    });
+      <div style="display:flex; gap:12px; flex-wrap:wrap; max-width:560px; margin-bottom:32px;">
+        <button class="btn btn-primary" id="btnSendEmail" disabled onclick="sendEmail()" style="flex:1">
+          📧 Envoyer l'image par mail
+        </button>
+        <button class="btn btn-ghost" onclick="shareLinkedin()">
+          in Partager sur LinkedIn
+        </button>
+      </div>
 
-    // Charge une image depuis une URL et la retourne comme objet Image
-    function loadImage(src) {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous'; // nécessaire pour exporter le canvas
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Échec chargement: ' + src));
-        img.src = src;
+      <div class="status-msg" id="emailStatus"></div>
+
+      <div style="margin-top:32px; padding-top:32px; border-top: 1px solid var(--border);">
+        <button class="btn btn-ghost" onclick="restartSession()">🔁 Nouvelle session</button>
+      </div>
+    </div>
+
+  </main>
+
+  <footer>
+    ACEO Tech · Google Cloud Summit 2026 · Propulsé par Vertex AI Gemini · Les avatars sont conservés 30 jours puis supprimés définitivement
+  </footer>
+</div>
+
+<!-- TOAST -->
+<div id="toast">
+  <span id="toastIcon">✓</span>
+  <span id="toastMsg">Message</span>
+</div>
+
+<script>
+  // ⚙️ CONFIG
+  const API_URL = 'https://script.google.com/macros/s/AKfycbzHLTDCdiaQdvQCjlGMiLzmFI0ttnpNlZ8BwQR--4zE18YdpFlVLw9p-tkIN7CcjBu8/exec';
+  const SECRET = 'ton-uuid-secret';
+  const LOGO_URL = 'https://raw.githubusercontent.com/jeremycolard-aev/bacasable/main/logo-aceo-transparent.png';
+
+  // STATE
+  let stream = null;
+  let capturedBase64 = null;
+  let transformedImage = null;
+  let selectedArchetype = null;
+  let userLogged = false;
+  let currentStep = 1;
+  let validateTimer = null;
+
+  const archetypeData = {
+    'data-wrangler':      { label: 'Data Wrangler',       emoji: '🗄️', color: '#4285F4', animal: 'renard' },
+    'cloud-architect':    { label: 'Cloud Architect',      emoji: '🏗️', color: '#34A853', animal: 'aigle' },
+    'ai-sorcerer':        { label: 'AI Sorcerer',          emoji: '🧙', color: '#FBBC04', animal: 'loup' },
+    'security-sentinel':  { label: 'Security Sentinel',    emoji: '🛡️', color: '#EA4335', animal: 'lion' },
+  };
+
+  // ── NAVIGATION ──
+  function goTo(screenId, step) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById(screenId);
+    if (el) el.classList.add('active');
+    currentStep = step;
+    updateProgress(step);
+  }
+
+  function updateProgress(step) {
+    for (let i = 1; i <= 6; i++) {
+      const prog = document.getElementById('prog-' + i);
+      const con  = document.getElementById('con-' + i);
+      if (!prog) continue;
+      prog.classList.remove('active', 'done');
+      if (con) con.classList.remove('done');
+      if (i < step)       { prog.classList.add('done'); if (con) con.classList.add('done'); }
+      else if (i === step)  prog.classList.add('active');
+    }
+  }
+
+  // ── SESSION START ──
+  function startSession() {
+    document.getElementById('consentModal').classList.add('open');
+  }
+
+  function consentAccept() {
+    document.getElementById('consentModal').classList.remove('open');
+    goTo('s-webcam', 2);
+    initWebcam();
+  }
+
+  function consentDecline() {
+    document.getElementById('consentModal').classList.remove('open');
+    toast('⚠️', 'Vous pouvez quand même recevoir un goodie au stand !', 'info');
+  }
+
+  // ── WEBCAM ──
+  async function initWebcam() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { width: 1280, height: 720, facingMode: 'user' },
+        audio: false
       });
+      const v = document.getElementById('video');
+      v.srcObject = stream;
+      await v.play();
+      document.getElementById('btnCapture').disabled = false;
+    } catch (err) {
+      toast('❌', 'Caméra inaccessible : ' + err.message, 'error');
+    }
+  }
+
+  function capturePhoto() {
+    const v = document.getElementById('video');
+    const c = document.getElementById('canvas');
+    const p = document.getElementById('photo');
+    c.width = v.videoWidth;
+    c.height = v.videoHeight;
+    const ctx = c.getContext('2d');
+    ctx.translate(c.width, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(v, 0, 0);
+    capturedBase64 = c.toDataURL('image/jpeg', 0.85);
+    p.src = capturedBase64;
+    p.style.display = 'block';
+    v.style.display = 'none';
+    document.getElementById('camScan').style.display = 'none';
+    document.getElementById('camLiveBadge').style.display = 'none';
+    document.getElementById('btnCapture').style.display = 'none';
+    document.getElementById('btnRetake').style.display = 'inline-flex';
+    document.getElementById('btnNext2').style.display = 'inline-flex';
+    toast('📸', 'Photo capturée !', 'success');
+  }
+
+  function retakePhoto() {
+    const v = document.getElementById('video');
+    const p = document.getElementById('photo');
+    p.style.display = 'none';
+    v.style.display = 'block';
+    document.getElementById('camScan').style.display = '';
+    document.getElementById('camLiveBadge').style.display = '';
+    document.getElementById('btnCapture').style.display = 'inline-flex';
+    document.getElementById('btnRetake').style.display = 'none';
+    document.getElementById('btnNext2').style.display = 'none';
+    capturedBase64 = null;
+  }
+
+  // ── ARCHETYPE ──
+  function selectArchetype(card) {
+    document.querySelectorAll('.arch-card').forEach(c => c.classList.remove('selected'));
+    card.classList.add('selected');
+    selectedArchetype = card.dataset.archetype;
+    document.getElementById('btnTransform').disabled = false;
+  }
+
+  // ── GENERATION ──
+  async function startGeneration() {
+    if (!capturedBase64 || !selectedArchetype) return;
+    goTo('s-generating', 4);
+
+    const arch = archetypeData[selectedArchetype];
+    document.getElementById('archetypeEmoji').textContent = arch.emoji;
+
+    // Animate gen steps
+    const steps = document.querySelectorAll('.gen-step-item');
+    steps.forEach(s => s.classList.remove('active', 'done'));
+    document.getElementById('loreText').textContent = '';
+
+    const durations = [1200, 1000, 0, 1800, 0]; // 0 = wait for API
+
+    // Steps 1-2 with timing
+    for (let i = 0; i < 2; i++) {
+      await delay(400);
+      steps[i].classList.add('active');
+      await delay(durations[i]);
+      steps[i].classList.remove('active');
+      steps[i].classList.add('done');
     }
 
-    // Compose l'image générée + logo en bas à droite
-    async function addLogoToImage(baseImageDataUrl) {
-      const [baseImg, logoImg] = await Promise.all([
-        loadImage(baseImageDataUrl),
-        loadImage(LOGO_URL)
-      ]);
+    // Step 3: actual API call
+    steps[2].classList.add('active');
 
-      const canvas = document.createElement('canvas');
-      canvas.width = baseImg.width;
-      canvas.height = baseImg.height;
-      const ctx = canvas.getContext('2d');
-
-      // Dessin de l'image de base
-      ctx.drawImage(baseImg, 0, 0);
-
-      // Logo en bas à droite : ~15% de la largeur, avec marge
-      const logoWidth = baseImg.width * 0.15;
-      const ratio = logoImg.height / logoImg.width;
-      const logoHeight = logoWidth * ratio;
-      const margin = baseImg.width * 0.02;
-      const x = baseImg.width - logoWidth - margin;
-      const y = baseImg.height - logoHeight - margin;
-
-      ctx.drawImage(logoImg, x, y, logoWidth, logoHeight);
-
-      return canvas.toDataURL('image/png');
+    let resultData = null;
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'transform',
+          secret: SECRET,
+          image: capturedBase64,
+          animal: arch.animal
+        })
+      });
+      resultData = await res.json();
+    } catch (err) {
+      toast('❌', 'Erreur réseau : ' + err.message, 'error');
+      goTo('s-archetype', 3);
+      return;
     }
 
-    $('transform').onclick = async () => {
-      $('transform').disabled = true;
-      $('status').innerHTML = '⏳ Transformation en cours (5-15 sec)...';
-      $('result').style.display = 'none';
+    if (!resultData.success) {
+      toast('❌', resultData.error || 'Erreur inconnue', 'error');
+      goTo('s-archetype', 3);
+      return;
+    }
 
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'transform',
-            secret: SECRET,
-            image: capturedBase64,
-            animal: selectedAnimal
-          })
-        });
-        const data = await res.json();
+    steps[2].classList.remove('active');
+    steps[2].classList.add('done');
 
-        if (!data.success) {
-          $('status').innerHTML = '<span class="error">❌ ' + data.error + '</span>';
-          $('transform').disabled = false;
-          return;
-        }
+    // Step 4: lore streaming (simulate)
+    steps[3].classList.add('active');
+    await streamLore(generateLore(arch.label));
+    steps[3].classList.remove('active');
+    steps[3].classList.add('done');
 
-        // Ajout du logo
-        $('status').innerHTML = '⏳ Ajout du logo...';
-        try {
-          transformedImage = await addLogoToImage(data.image);
-        } catch (e) {
-          console.warn('Logo non ajouté:', e);
-          transformedImage = data.image; // fallback sans logo
-        }
+    // Step 5: logo
+    steps[4].classList.add('active');
+    await delay(600);
+    try {
+      transformedImage = await addLogoToImage(resultData.image);
+    } catch {
+      transformedImage = resultData.image;
+    }
+    steps[4].classList.remove('active');
+    steps[4].classList.add('done');
 
-        $('result').src = transformedImage;
-        $('result').style.display = 'block';
-        $('status').innerHTML = '<span class="success">✅ Transformation réussie !</span>';
-        $('step4').classList.remove('disabled');
-        $('restart').style.display = 'inline-block';
+    await delay(600);
 
-      } catch (err) {
-        $('status').innerHTML = '<span class="error">❌ ' + err.message + '</span>';
-        $('transform').disabled = false;
-      }
+    // Show reveal
+    const name = document.getElementById('nomInput').value.trim() || 'HERO';
+    showReveal(transformedImage, arch, name);
+    goTo('s-reveal', 5);
+  }
+
+  function delay(ms) {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  function generateLore(archetype) {
+    const lores = {
+      'Data Wrangler': "Forgé dans 1 To de data streams. Apprivoise les schémas hostiles et fait parler les ETL muets. Arme légendaire : SQL béni par BigQuery.",
+      'Cloud Architect': "Né des nébuleuses de Kubernetes. Bâtit des cathédrales de microservices sur des nuages indestructibles. Arme légendaire : le blueprint Cloud Run.",
+      'AI Sorcerer': "Éveillé par le premier LLM. Transforme les prompts en or et invoque les esprits du modèle à la demande. Arme légendaire : Vertex AI Gemini.",
+      'Security Sentinel': "Forgé dans les cryptes du chiffrement. Aucun accès non autorisé ne lui résiste, aucune clé ne lui échappe. Arme légendaire : Chronicle Security Ops.",
     };
+    return lores[archetype] || "Forgé dans le cloud. Arme légendaire : Google Cloud.";
+  }
 
-    // ========== ÉTAPE 4 : Logging + Email ==========
-    const nomInput = $('nomInput');
-    const emailInput = $('emailInput');
-
-    function validateForm() {
-      const nom = nomInput.value.trim();
-      const email = emailInput.value.trim();
-      const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-      const formValid = nom.length >= 2 && emailValid;
-      
-      if (formValid && !userLogged) {
-        // Log dès que tout est valide
-        logUser(nom, email);
-      }
-      
-      $('sendEmail').disabled = !formValid;
+  async function streamLore(text) {
+    const el = document.getElementById('loreText');
+    el.textContent = '';
+    for (let i = 0; i < text.length; i++) {
+      el.textContent += text[i];
+      await delay(18);
     }
+  }
 
-    async function logUser(nom, email) {
-      userLogged = true; // optimistic, évite les appels en doublon
-      $('logStatus').innerHTML = '<p>⏳ Enregistrement...</p>';
-      
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'logUser',
-            secret: SECRET,
-            nom: nom,
-            email: email
-          })
-        });
-        const data = await res.json();
-        
-        if (data.success) {
-          $('logStatus').innerHTML = '<p class="success">✅ Informations enregistrées</p>';
-        } else {
-          $('logStatus').innerHTML = '<p class="error">⚠️ ' + data.error + '</p>';
-          userLogged = false; // permet de réessayer
-        }
-      } catch (err) {
-        $('logStatus').innerHTML = '<p class="error">⚠️ ' + err.message + '</p>';
-        userLogged = false;
-      }
+  function showReveal(imgSrc, arch, name) {
+    document.getElementById('resultImg').src = imgSrc;
+    const badge = document.getElementById('revealBadge');
+    badge.textContent = arch.emoji + ' ' + arch.label;
+    badge.style.background = arch.color + '1A';
+    badge.style.borderColor = arch.color + '44';
+    badge.style.color = arch.color;
+    document.getElementById('revealName').textContent = name.toUpperCase() || 'HERO';
+    document.getElementById('revealLore').textContent = generateLore(arch.label);
+  }
+
+  // ── IMAGE + LOGO ──
+  function loadImage(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error('Load failed: ' + src));
+      img.src = src;
+    });
+  }
+
+  async function addLogoToImage(baseImageDataUrl) {
+    const [base, logo] = await Promise.all([loadImage(baseImageDataUrl), loadImage(LOGO_URL)]);
+    const c = document.createElement('canvas');
+    c.width = base.width;
+    c.height = base.height;
+    const ctx = c.getContext('2d');
+    ctx.drawImage(base, 0, 0);
+    const lw = base.width * 0.15;
+    const lh = lw * (logo.height / logo.width);
+    const m = base.width * 0.025;
+    ctx.globalAlpha = 0.85;
+    ctx.drawImage(logo, base.width - lw - m, base.height - lh - m, lw, lh);
+    ctx.globalAlpha = 1;
+    return c.toDataURL('image/png');
+  }
+
+  // ── EMAIL ──
+  function validateForm() {
+    const nom   = document.getElementById('nomInput').value.trim();
+    const email = document.getElementById('emailInput').value.trim();
+    const valid = nom.length >= 2 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (valid && !userLogged) logUser(nom, email);
+    document.getElementById('btnSendEmail').disabled = !valid;
+  }
+
+  function debouncedValidate() {
+    clearTimeout(validateTimer);
+    validateTimer = setTimeout(validateForm, 600);
+  }
+
+  document.getElementById('nomInput').addEventListener('input', debouncedValidate);
+  document.getElementById('emailInput').addEventListener('input', debouncedValidate);
+
+  async function logUser(nom, email) {
+    userLogged = true;
+    showStatus('logStatus', 'info', '⏳ Enregistrement…');
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'logUser', secret: SECRET, nom, email })
+      });
+      const d = await res.json();
+      if (d.success) showStatus('logStatus', 'success', '✅ Informations enregistrées');
+      else { showStatus('logStatus', 'error', '⚠️ ' + d.error); userLogged = false; }
+    } catch (err) {
+      showStatus('logStatus', 'error', '⚠️ ' + err.message);
+      userLogged = false;
     }
+  }
 
-    // Debounce pour éviter de spammer l'API à chaque touche
-    let validateTimer = null;
-    function debouncedValidate() {
-      clearTimeout(validateTimer);
-      validateTimer = setTimeout(validateForm, 600);
-    }
-    
-    nomInput.addEventListener('input', debouncedValidate);
-    emailInput.addEventListener('input', debouncedValidate);
-
-    $('sendEmail').onclick = async () => {
-      $('sendEmail').disabled = true;
-      $('emailStatus').innerHTML = '<p>⏳ Envoi en cours...</p>';
-
-      try {
-        const res = await fetch(API_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            action: 'sendEmail',
-            secret: SECRET,
-            email: emailInput.value.trim(),
-            nom: nomInput.value.trim(),
-            image: transformedImage,
-            animal: selectedAnimal
-          })
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          $('emailStatus').innerHTML = '<p class="success">✅ Email envoyé à ' + emailInput.value + ' !</p>';
-        } else {
-          $('emailStatus').innerHTML = '<p class="error">❌ ' + data.error + '</p>';
-          $('sendEmail').disabled = false;
-        }
-      } catch (err) {
-        $('emailStatus').innerHTML = '<p class="error">❌ ' + err.message + '</p>';
-        $('sendEmail').disabled = false;
+  async function sendEmail() {
+    const nom   = document.getElementById('nomInput').value.trim();
+    const email = document.getElementById('emailInput').value.trim();
+    document.getElementById('btnSendEmail').disabled = true;
+    showStatus('emailStatus', 'info', '⏳ Envoi en cours…');
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'sendEmail',
+          secret: SECRET,
+          email,
+          nom,
+          image: transformedImage,
+          animal: archetypeData[selectedArchetype]?.label
+        })
+      });
+      const d = await res.json();
+      if (d.success) {
+        showStatus('emailStatus', 'success', '✅ Email envoyé à ' + email + ' !');
+        toast('📧', 'Email envoyé avec succès !', 'success');
+      } else {
+        showStatus('emailStatus', 'error', '❌ ' + d.error);
+        document.getElementById('btnSendEmail').disabled = false;
       }
-    };
+    } catch (err) {
+      showStatus('emailStatus', 'error', '❌ ' + err.message);
+      document.getElementById('btnSendEmail').disabled = false;
+    }
+  }
 
-    $('restart').onclick = () => location.reload();
-  </script>
+  function shareLinkedin() {
+    const arch = archetypeData[selectedArchetype] || {};
+    const lore = generateLore(arch.label || '');
+    const text = encodeURIComponent(
+      `Je viens de découvrir mon alter-ego « ${arch.label} » au stand @ACEO Tech au #GoogleCloudSummit 2026 ☁️⚡\n\n${lore}\n\n#AceoTech #GoogleCloud #GenAI #SummitParis`
+    );
+    window.open('https://www.linkedin.com/shareArticle?mini=true&title=Mon+avatar+ACEO+Tech&summary=' + text, '_blank');
+  }
+
+  // ── RESTART ──
+  function restartSession() {
+    if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+    capturedBase64 = null;
+    transformedImage = null;
+    selectedArchetype = null;
+    userLogged = false;
+    document.getElementById('nomInput').value = '';
+    document.getElementById('emailInput').value = '';
+    document.querySelectorAll('.arch-card').forEach(c => c.classList.remove('selected'));
+    document.getElementById('btnTransform').disabled = true;
+    document.getElementById('video').style.display = 'block';
+    document.getElementById('photo').style.display = 'none';
+    document.getElementById('btnCapture').style.display = 'inline-flex';
+    document.getElementById('btnCapture').disabled = true;
+    document.getElementById('btnRetake').style.display = 'none';
+    document.getElementById('btnNext2').style.display = 'none';
+    document.getElementById('camScan').style.display = '';
+    document.getElementById('camLiveBadge').style.display = '';
+    hideStatus('logStatus');
+    hideStatus('emailStatus');
+    goTo('s-welcome', 1);
+  }
+
+  // ── UTILS ──
+  function showStatus(id, type, msg) {
+    const el = document.getElementById(id);
+    el.className = 'status-msg ' + type;
+    el.textContent = msg;
+  }
+  function hideStatus(id) {
+    const el = document.getElementById(id);
+    el.className = 'status-msg';
+    el.textContent = '';
+  }
+
+  let toastTimer = null;
+  function toast(icon, msg, type) {
+    const t = document.getElementById('toast');
+    document.getElementById('toastIcon').textContent = icon;
+    document.getElementById('toastMsg').textContent = msg;
+    t.style.borderColor = type === 'error' ? 'rgba(234,67,53,0.3)' :
+                          type === 'success' ? 'rgba(52,168,83,0.3)' : 'rgba(66,133,244,0.3)';
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+  }
+
+  // Init
+  updateProgress(1);
+</script>
 </body>
 </html>
