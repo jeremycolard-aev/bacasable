@@ -10,26 +10,37 @@
     .step h2 { margin-top: 0; color: #4285f4; }
     .step.disabled { opacity: 0.4; pointer-events: none; }
     button { padding: 12px 24px; font-size: 15px; background: #4285f4; color: white; border: none; border-radius: 8px; cursor: pointer; margin: 5px; }
+    button:hover:not(:disabled) { background: #357ae8; }
     button:disabled { background: #ccc; cursor: not-allowed; }
     button.secondary { background: white; color: #4285f4; border: 2px solid #4285f4; }
+    button.secondary:hover:not(:disabled) { background: #f0f5ff; }
     .animals { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
     .animals button.selected { background: #34a853; }
     video, img { width: 100%; max-width: 500px; display: block; margin: 15px auto; border-radius: 8px; background: #000; }
     canvas { display: none; }
-    #status { text-align: center; min-height: 24px; font-style: italic; }
-    .error { color: #d33; } .success { color: #0a0; }
+    input[type="email"] { padding: 12px; font-size: 15px; border: 2px solid #ddd; border-radius: 8px; width: 280px; max-width: 90%; }
+    input[type="email"]:focus { border-color: #4285f4; outline: none; }
+    #status, #permStatus, #emailStatus { text-align: center; min-height: 24px; font-style: italic; margin: 10px 0; }
+    .error { color: #d33; font-weight: bold; }
+    .success { color: #0a0; font-weight: bold; }
     .center { text-align: center; }
+    p { margin: 10px 0; }
   </style>
 </head>
 <body>
   <h1>🐾 Animal Transformer</h1>
 
+  <!-- ÉTAPE 1 : Permission webcam -->
   <div class="step" id="step1">
     <h2>1️⃣ Activer la webcam</h2>
-    <div class="center"><button id="askPermission">🎥 Activer</button></div>
+    <p style="text-align:center;color:#666;">L'application a besoin d'accéder à ta webcam pour prendre une photo.</p>
+    <div class="center">
+      <button id="askPermission">🎥 Activer la webcam</button>
+    </div>
     <div id="permStatus"></div>
   </div>
 
+  <!-- ÉTAPE 2 : Capture photo -->
   <div class="step disabled" id="step2">
     <h2>2️⃣ Prendre la photo</h2>
     <video id="video" autoplay playsinline muted></video>
@@ -41,8 +52,9 @@
     </div>
   </div>
 
+  <!-- ÉTAPE 3 : Choix animal + transformation -->
   <div class="step disabled" id="step3">
-    <h2>3️⃣ Choisir un animal</h2>
+    <h2>3️⃣ Choisir un animal et transformer</h2>
     <div class="animals">
       <button data-animal="chien">🐕 Chien</button>
       <button data-animal="ours">🐻 Ours</button>
@@ -54,36 +66,69 @@
     </div>
     <div id="status"></div>
     <img id="result" style="display:none">
+  </div>
+
+  <!-- ÉTAPE 4 : Envoi par email -->
+  <div class="step disabled" id="step4">
+    <h2>4️⃣ Recevoir par email (optionnel)</h2>
+    <p style="text-align:center;color:#666;">Saisis ton email pour recevoir l'image dans ta boîte mail.</p>
     <div class="center">
-      <button id="restart" class="secondary" style="display:none">🔁 Recommencer</button>
+      <input type="email" id="emailInput" placeholder="ton@email.com">
+      <br>
+      <button id="sendEmail" disabled style="margin-top:10px;">📧 Envoyer</button>
     </div>
+    <div id="emailStatus"></div>
+  </div>
+
+  <!-- Recommencer -->
+  <div class="center">
+    <button id="restart" class="secondary" style="display:none">🔁 Recommencer</button>
   </div>
 
   <script>
-    // ⚙️ CONFIG
+    // ⚙️ CONFIG — à remplacer
     const API_URL = 'https://script.google.com/macros/s/AKfycbzHLTDCdiaQdvQCjlGMiLzmFI0ttnpNlZ8BwQR--4zE18YdpFlVLw9p-tkIN7CcjBu8/exec';
-    const SECRET = 'change-moi-genere-un-uuid-aleatoire'; // doit matcher Code.gs
+    const SECRET = 'ton-uuid-secret';
 
-    let stream = null, capturedBase64 = null, selectedAnimal = null;
+    // State
+    let stream = null;
+    let capturedBase64 = null;
+    let transformedImage = null;
+    let selectedAnimal = null;
+
     const $ = id => document.getElementById(id);
 
+    // ========== ÉTAPE 1 : Permission webcam ==========
     $('askPermission').onclick = async () => {
-      $('permStatus').innerHTML = '⏳...';
+      $('permStatus').innerHTML = '<p>⏳ Demande d\'autorisation en cours...</p>';
       try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('getUserMedia non supporté par ce navigateur');
+        }
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 1280, height: 720, facingMode: 'user' },
+          audio: false
+        });
         $('video').srcObject = stream;
-        $('permStatus').innerHTML = '<p class="success">✅ Webcam activée</p>';
+        await $('video').play();
+        $('permStatus').innerHTML = '<p class="success">✅ Webcam activée !</p>';
         $('step1').style.display = 'none';
         $('step2').classList.remove('disabled');
         $('capture').disabled = false;
       } catch (err) {
-        $('permStatus').innerHTML = '<p class="error">❌ ' + err.message + '</p>';
+        let msg = err.message;
+        if (err.name === 'NotAllowedError') msg = 'Tu as refusé l\'accès à la webcam. Clique sur l\'icône caméra dans la barre d\'adresse pour autoriser.';
+        if (err.name === 'NotFoundError') msg = 'Aucune webcam détectée sur cet ordinateur.';
+        if (err.name === 'NotReadableError') msg = 'La webcam est déjà utilisée par une autre application.';
+        $('permStatus').innerHTML = '<p class="error">❌ ' + msg + '</p>';
       }
     };
 
+    // ========== ÉTAPE 2 : Capture ==========
     $('capture').onclick = () => {
       const c = $('canvas'), v = $('video');
-      c.width = v.videoWidth; c.height = v.videoHeight;
+      c.width = v.videoWidth;
+      c.height = v.videoHeight;
       c.getContext('2d').drawImage(v, 0, 0);
       capturedBase64 = c.toDataURL('image/jpeg', 0.85);
       $('photo').src = capturedBase64;
@@ -100,10 +145,18 @@
       $('capture').style.display = 'inline-block';
       $('retake').style.display = 'none';
       capturedBase64 = null;
+      transformedImage = null;
+      $('result').style.display = 'none';
+      $('status').innerHTML = '';
       $('step3').classList.add('disabled');
+      $('step4').classList.add('disabled');
       $('transform').disabled = true;
+      $('restart').style.display = 'none';
+      document.querySelectorAll('.animals button').forEach(b => b.classList.remove('selected'));
+      selectedAnimal = null;
     };
 
+    // ========== ÉTAPE 3 : Sélection animal + transformation ==========
     document.querySelectorAll('.animals button').forEach(btn => {
       btn.onclick = () => {
         document.querySelectorAll('.animals button').forEach(b => b.classList.remove('selected'));
@@ -117,25 +170,26 @@
       $('transform').disabled = true;
       $('status').innerHTML = '⏳ Transformation en cours (5-15 sec)...';
       $('result').style.display = 'none';
-      
+
       try {
         const res = await fetch(API_URL, {
           method: 'POST',
-          // ⚠️ text/plain pour éviter le preflight CORS
           headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
+            action: 'transform',
             secret: SECRET,
             image: capturedBase64,
             animal: selectedAnimal
           })
         });
-        
         const data = await res.json();
-        
+
         if (data.success) {
+          transformedImage = data.image;
           $('result').src = data.image;
           $('result').style.display = 'block';
-          $('status').innerHTML = '<span class="success">✅ Succès !</span>';
+          $('status').innerHTML = '<span class="success">✅ Transformation réussie !</span>';
+          $('step4').classList.remove('disabled');
           $('restart').style.display = 'inline-block';
         } else {
           $('status').innerHTML = '<span class="error">❌ ' + data.error + '</span>';
@@ -147,6 +201,44 @@
       }
     };
 
+    // ========== ÉTAPE 4 : Envoi email ==========
+    const emailInput = $('emailInput');
+    emailInput.addEventListener('input', () => {
+      const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailInput.value);
+      $('sendEmail').disabled = !valid;
+    });
+
+    $('sendEmail').onclick = async () => {
+      $('sendEmail').disabled = true;
+      $('emailStatus').innerHTML = '<p>⏳ Envoi en cours...</p>';
+
+      try {
+        const res = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({
+            action: 'sendEmail',
+            secret: SECRET,
+            email: emailInput.value,
+            image: transformedImage,
+            animal: selectedAnimal
+          })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          $('emailStatus').innerHTML = '<p class="success">✅ Email envoyé à ' + emailInput.value + ' !</p>';
+        } else {
+          $('emailStatus').innerHTML = '<p class="error">❌ ' + data.error + '</p>';
+          $('sendEmail').disabled = false;
+        }
+      } catch (err) {
+        $('emailStatus').innerHTML = '<p class="error">❌ ' + err.message + '</p>';
+        $('sendEmail').disabled = false;
+      }
+    };
+
+    // ========== Recommencer ==========
     $('restart').onclick = () => location.reload();
   </script>
 </body>
