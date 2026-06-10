@@ -3,324 +3,318 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recherche Activités - Google Sheets</title>
+    <title>Récupérateur d'Activités</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
-            justify-content: center;
             align-items: center;
+            justify-content: center;
             padding: 20px;
         }
-        
+
         .container {
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 800px;
-            width: 100%;
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .header h1 {
-            font-size: 1.8em;
-            margin-bottom: 10px;
-        }
-        
-        .header p {
-            opacity: 0.9;
-            font-size: 0.9em;
-        }
-        
-        .content {
-            padding: 30px;
-        }
-        
-        button {
-            width: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 15px;
-            font-size: 1.1em;
             border-radius: 10px;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            font-weight: 600;
-            margin-bottom: 20px;
-        }
-        
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        
-        .stats {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 20px;
-            display: flex;
-            justify-content: space-between;
-            gap: 10px;
-        }
-        
-        .stat {
-            flex: 1;
-            text-align: center;
-        }
-        
-        .stat-label {
-            font-size: 0.8em;
-            color: #666;
-            margin-bottom: 5px;
-        }
-        
-        .stat-value {
-            font-size: 1.5em;
-            font-weight: bold;
-            color: #667eea;
-        }
-        
-        .stat-unit {
-            font-size: 0.7em;
-            color: #999;
-        }
-        
-        .results {
-            margin-top: 20px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-        
-        .activity {
-            background: #f8f9fa;
-            border-left: 4px solid #667eea;
-            padding: 12px;
-            margin-bottom: 10px;
-            border-radius: 8px;
-            transition: background 0.2s;
-        }
-        
-        .activity:hover {
-            background: #e9ecef;
-        }
-        
-        .activity-name {
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 5px;
-            font-size: 1em;
-        }
-        
-        .activity-desc {
-            color: #666;
-            font-size: 0.85em;
-        }
-        
-        .loading {
-            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
             color: #666;
+            font-size: 14px;
+            margin-bottom: 30px;
         }
-        
-        .error {
-            background: #fee;
-            color: #c33;
-            padding: 15px;
-            border-radius: 10px;
-            border-left: 4px solid #c33;
+
+        .button-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
         }
-        
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: #667eea;
+            padding: 20px;
+        }
+
         .spinner {
             border: 3px solid #f3f3f3;
             border-top: 3px solid #667eea;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            width: 30px;
+            height: 30px;
             animation: spin 1s linear infinite;
-            margin: 0 auto 15px;
+            margin: 0 auto 10px;
         }
-        
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        
-        .info {
-            background: #e3f2fd;
-            padding: 12px;
-            border-radius: 8px;
-            font-size: 0.85em;
-            color: #1976d2;
-            text-align: center;
-            margin-top: 20px;
+
+        .message {
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
         }
-        
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .result-info {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 20px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-left: 3px solid #667eea;
+        }
+
+        .activite-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .activite-card {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            background: #fafafa;
+            transition: all 0.3s ease;
+        }
+
+        .activite-card:hover {
+            border-color: #667eea;
+            background: #f5f7ff;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+
+        .activite-titre {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .activite-description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
         @media (max-width: 600px) {
-            .content {
+            .container {
                 padding: 20px;
             }
-            
-            .stats {
-                flex-direction: column;
+
+            h1 {
+                font-size: 24px;
             }
-            
-            .stat {
-                text-align: left;
-                display: flex;
-                justify-content: space-between;
-                align-items: baseline;
-            }
-            
-            .stat-label {
-                margin-bottom: 0;
+
+            button {
+                padding: 10px 16px;
+                font-size: 14px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <h1>📊 Recherche d'Activités</h1>
-            <p>Activités commençant par la lettre "A"</p>
+        <h1>📋 Activités</h1>
+        <p class="subtitle">Récupère les activités commençant par la lettre A</p>
+
+        <div class="button-container">
+            <button class="btn-primary" id="fetchBtn">Charger les activités</button>
+            <button class="btn-secondary" id="clearBtn">Effacer</button>
         </div>
-        
-        <div class="content">
-            <button onclick="rechercherActivites()" id="searchBtn">
-                🔍 Rechercher les activités commençant par A
-            </button>
-            
-            <div id="resultsArea">
-                <div class="info">
-                    💡 Cliquez sur le bouton pour lancer la recherche
-                </div>
-            </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Chargement en cours...</p>
+        </div>
+
+        <div class="message" id="message"></div>
+
+        <div class="results" id="results">
+            <div class="result-info" id="resultInfo"></div>
+            <div class="activite-list" id="activiteList"></div>
         </div>
     </div>
 
     <script>
-        // À remplacer par l'URL de votre Web App déployée
-        const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbyUzxrBSvOPce4WKuXYu9E065lQ3eMOEV3tOo1pUoI5FpPzgnz31BYdUjFJrCwMwgoV/exec';
-        
-        async function rechercherActivites() {
-            const btn = document.getElementById('searchBtn');
-            const resultsArea = document.getElementById('resultsArea');
-            
-            // Désactiver le bouton et afficher le chargement
-            btn.disabled = true;
-            btn.textContent = '⏳ Recherche en cours...';
-            
-            resultsArea.innerHTML = `
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Récupération des données depuis Google Sheets...</p>
-                </div>
-            `;
-            
-            const startTime = performance.now();
-            
+        // À remplacer par ton URL de deployment Apps Script
+        const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyUzxrBSvOPce4WKuXYu9E065lQ3eMOEV3tOo1pUoI5FpPzgnz31BYdUjFJrCwMwgoV/exec';
+
+        const fetchBtn = document.getElementById('fetchBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const loading = document.getElementById('loading');
+        const message = document.getElementById('message');
+        const results = document.getElementById('results');
+        const resultInfo = document.getElementById('resultInfo');
+        const activiteList = document.getElementById('activiteList');
+
+        // Event listeners
+        fetchBtn.addEventListener('click', fetchActivites);
+        clearBtn.addEventListener('click', clearResults);
+
+        async function fetchActivites() {
+            // Réinitialise les messages
+            message.className = 'message';
+            message.textContent = '';
+            results.style.display = 'none';
+
+            // Affiche le loader
+            loading.style.display = 'block';
+            fetchBtn.disabled = true;
+
             try {
-                // Appel à la Web App
-                const response = await fetch(WEB_APP_URL);
-                const data = await response.json();
-                
-                const endTime = performance.now();
-                const totalTime = (endTime - startTime) / 1000;
-                
-                if (data.success) {
-                    afficherResultats(data, totalTime);
-                } else {
-                    afficherErreur(data.error || 'Erreur inconnue');
-                }
-                
-            } catch (error) {
-                afficherErreur(`Impossible de contacter le serveur: ${error.message}<br>
-                <small>Vérifiez que l'URL de la Web App est correcte et déployée</small>`);
-            } finally {
-                btn.disabled = false;
-                btn.textContent = '🔍 Rechercher les activités commençant par A';
-            }
-        }
-        
-        function afficherResultats(data, totalTime) {
-            const resultsArea = document.getElementById('resultsArea');
-            
-            let html = `
-                <div class="stats">
-                    <div class="stat">
-                        <div class="stat-label">⏱️ Temps serveur</div>
-                        <div class="stat-value">${data.executionTime.toFixed(3)}</div>
-                        <div class="stat-unit">secondes</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-label">🌐 Temps total</div>
-                        <div class="stat-value">${totalTime.toFixed(3)}</div>
-                        <div class="stat-unit">secondes</div>
-                    </div>
-                    <div class="stat">
-                        <div class="stat-label">📊 Résultats</div>
-                        <div class="stat-value">${data.count}</div>
-                        <div class="stat-unit">activités</div>
-                    </div>
-                </div>
-                
-                <div class="results">
-            `;
-            
-            if (data.results.length === 0) {
-                html += '<div class="info">📭 Aucune activité commençant par "A" trouvée</div>';
-            } else {
-                data.results.forEach(item => {
-                    html += `
-                        <div class="activity">
-                            <div class="activity-name">📌 ${escapeHtml(item.activite)}</div>
-                            <div class="activity-desc">${escapeHtml(item.description)}</div>
-                        </div>
-                    `;
+                const response = await fetch(WEBAPP_URL, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json'
+                    }
                 });
+
+                if (!response.ok) {
+                    throw new Error(`Erreur HTTP: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    displayResults(data);
+                } else {
+                    showMessage(`Erreur: ${data.error}`, 'error');
+                }
+
+            } catch (error) {
+                console.error('Erreur:', error);
+                showMessage(
+                    `Erreur lors du chargement: ${error.message}\n\nAssurez-toi que:\n1. L'URL webapp est correctement configurée\n2. Le deployment est actif\n3. Tu as les permissions d'accès au sheet`,
+                    'error'
+                );
+            } finally {
+                loading.style.display = 'none';
+                fetchBtn.disabled = false;
             }
-            
-            html += `
-                </div>
-                <div class="info">
-                    ⚡ Comparaison: Exécutez python3 get_activities.py dans Cloud Shell pour comparer les performances
-                </div>
-            `;
-            
-            resultsArea.innerHTML = html;
         }
-        
-        function afficherErreur(message) {
-            const resultsArea = document.getElementById('resultsArea');
-            resultsArea.innerHTML = `
-                <div class="error">
-                    ❌ Erreur: ${message}
-                </div>
-            `;
+
+        function displayResults(data) {
+            resultInfo.textContent = `${data.count} activité(s) trouvée(s) commençant par 'A'`;
+
+            if (data.activites.length === 0) {
+                activiteList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📭</div>
+                        <p>Aucune activité trouvée commençant par la lettre A</p>
+                    </div>
+                `;
+            } else {
+                activiteList.innerHTML = data.activites
+                    .map(activite => `
+                        <div class="activite-card">
+                            <div class="activite-titre">🎯 ${escapeHtml(activite.titre)}</div>
+                            <div class="activite-description">${escapeHtml(activite.description)}</div>
+                        </div>
+                    `)
+                    .join('');
+            }
+
+            results.style.display = 'block';
         }
-        
+
+        function showMessage(text, type) {
+            message.textContent = text;
+            message.className = `message ${type}`;
+        }
+
+        function clearResults() {
+            message.className = 'message';
+            message.textContent = '';
+            results.style.display = 'none';
+            activiteList.innerHTML = '';
+        }
+
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
